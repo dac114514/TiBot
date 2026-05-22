@@ -1,203 +1,130 @@
-# Operit Android 项目
+# Android Starter
 
-这是一个基于 **Jetpack Compose** 的现代化 Android 应用开发模板。
+通用 Android 项目起始框架，基于 **Jetpack Compose + Material Design 3 蓝色主题 + 卡片化设计**，开箱即用，可直接作为新项目基础。
 
-## 🚀 项目特性
+[![Android CI](https://github.com/dac114514/android-starter/actions/workflows/android.yml/badge.svg)](https://github.com/dac114514/android-starter/actions/workflows/android.yml)
 
-✅ **Jetpack Compose** - 现代化声明式 UI 框架  
-✅ **Material Design 3** - 最新设计规范  
-✅ **Kotlin** - 100% Kotlin 编写  
-✅ **Gradle Version Catalog** - 统一依赖管理  
-✅ **开箱即用** - 包含完整项目结构  
+---
 
-## 📁 项目结构
+## 特性
+
+- **Material 3 蓝色主题** — primary `#1976D2`，深色模式 primary `#9ECAFF`，完整 light/dark color scheme
+- **卡片化设计** — `ItemCard` 组件：12dp 圆角、2dp elevation、4dp 左侧强调色条
+- **底部导航** — 3 个 Tab（首页 / 列表 / 设置），Navigation Compose 管理路由
+- **ViewModel + StateFlow** — 每个页面独立 ViewModel，Compose 生命周期友好
+- **DataStore 主题持久化** — 支持跟随系统 / 强制浅色 / 强制深色，重启保留
+- **GitHub Actions CI** — 推送自动触发 `assembleDebug`，产出 APK artifact
+- **ARM64 兼容** — 内置 Termux/Proot 环境下的 AAPT2 替换脚本，CI 与本地构建均可用
+
+---
+
+## 技术栈
+
+| 项目 | 版本 |
+|---|---|
+| Kotlin | 2.3.10 |
+| Android Gradle Plugin | 9.0.0 |
+| Compose BOM | 2026.01.01 |
+| Navigation Compose | 2.8.5 |
+| Lifecycle ViewModel Compose | 2.8.7 |
+| Material Icons Extended | 1.7.8 |
+| DataStore Preferences | 1.1.1 |
+| minSdk / targetSdk | 24 / 35 |
+
+---
+
+## 项目结构
 
 ```
-android-project/
-├── app/
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/java/myapplication/
-│   │   │   │   ├── MainActivity.kt          # 主Activity
-│   │   │   │   └── ui/theme/
-│   │   │   │       ├── Color.kt             # 颜色定义
-│   │   │   │       ├── Theme.kt             # 主题配置
-│   │   │   │       └── Type.kt              # 字体配置
-│   │   │   ├── res/                         # 资源文件
-│   │   │   └── AndroidManifest.xml          # 应用清单
-│   │   ├── androidTest/                     # Android测试
-│   │   └── test/                            # 单元测试
-│   ├── build.gradle.kts                     # App模块配置
-│   └── proguard-rules.pro                   # 混淆规则
-├── gradle/
-│   ├── libs.versions.toml                   # 依赖版本管理
-│   └── wrapper/                             # Gradle Wrapper
-├── build.gradle.kts                         # 项目级配置
-├── settings.gradle.kts                      # 项目设置
-├── gradle.properties                        # Gradle属性
-├── gradlew / gradlew.bat                    # Gradle命令
-└── .gitignore                               # Git忽略
+app/src/main/java/com/example/androidstarter/
+├── MainActivity.kt                  # 入口：底部导航 + 主题收集
+├── data/
+│   ├── local/
+│   │   ├── ThemeMode.kt             # 枚举：SYSTEM / LIGHT / DARK
+│   │   └── PreferencesRepository.kt # DataStore 读写封装
+│   ├── model/
+│   │   └── SampleItem.kt            # 示例数据模型
+│   └── repository/
+│       └── SampleRepository.kt      # 示例数据 Flow
+└── ui/
+    ├── theme/
+    │   ├── Color.kt                 # 蓝色调色板（含深色变体）
+    │   ├── Theme.kt                 # AndroidStarterTheme + 动态色
+    │   └── Type.kt                  # Material 3 字体比例
+    ├── navigation/
+    │   ├── Routes.kt                # 路由常量
+    │   └── AppNavHost.kt            # NavHost 配置
+    ├── components/
+    │   ├── ItemCard.kt              # 通用卡片组件
+    │   └── SectionHeader.kt         # 分组标题
+    ├── home/
+    │   ├── HomeScreen.kt            # 首页：欢迎卡 + 功能介绍
+    │   └── HomeViewModel.kt
+    ├── list/
+    │   ├── ListScreen.kt            # 列表页：LazyColumn + ItemCard
+    │   └── ListViewModel.kt
+    └── settings/
+        ├── SettingsScreen.kt        # 设置页：主题切换 + 应用信息
+        └── SettingsViewModel.kt
 ```
 
-## 🛠️ 快速开始
+---
 
-### 1. 环境要求
-- ✅ **JDK 17+**（必需）
-- ✅ **Gradle** (已包含 Wrapper)
-- ✅ **Android SDK** (可选，用于完整编译)
+## 快速开始
 
-### 2. 构建项目
+### 基于本模板新建项目
 
-#### 使用 Operit 内置命令按钮
-- 🔧 **初始化 Gradle Wrapper** - 首次使用
-- 🔨 **构建项目** - 编译整个项目
-- 🧹 **清理构建** - 清理构建缓存
-- 📋 **查看所有任务** - 列出可用任务
+1. 替换包名：全局搜索 `com.example.androidstarter` → 你的包名
+2. 修改应用名：`app/src/main/res/values/strings.xml`
+3. 修改 `app/build.gradle.kts` 中的 `namespace` 和 `applicationId`
+4. 重命名 `java/com/example/androidstarter/` 目录
+5. 替换启动器图标（`res/drawable/ic_launcher_*.xml` + `res/mipmap-*/`）
 
-#### 命令行方式
-```bash
-# Linux/Mac
-./gradlew build              # 构建项目
-./gradlew assembleDebug      # 打包Debug APK
-./gradlew installDebug       # 安装到设备
-./gradlew clean              # 清理构建
+### CI 构建（推荐）
 
-# Windows
-gradlew.bat build
-gradlew.bat assembleDebug
-```
+推送到 `main` 或 `master` 分支后，GitHub Actions 自动构建。查看产出：
 
-### 3. 生成的APK位置
-```
-app/build/outputs/apk/debug/app-debug.apk
-```
+> **Actions → 最新 workflow run → Artifacts → app-debug**
 
-## 📦 依赖管理
+### ARM64 本地构建（Termux/Proot）
 
-项目使用 **Gradle Version Catalog** 统一管理依赖版本。
-
-### 查看当前依赖
-在 `gradle/libs.versions.toml` 中定义：
-
-```toml
-[versions]
-agp = "9.0.0"
-kotlin = "2.3.10"
-composeBom = "2026.01.01"
-
-[libraries]
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
-```
-
-### 添加新依赖
-1. 在 `gradle/libs.versions.toml` 中添加版本和库定义
-2. 在 `app/build.gradle.kts` 中引用：
-   ```kotlin
-   dependencies {
-       implementation(libs.your.library.name)
-   }
-   ```
-
-## 🎨 自定义应用
-
-### 修改应用名称
-编辑 `app/src/main/res/values/strings.xml`：
-```xml
-<string name="app_name">你的应用名</string>
-```
-
-### 修改包名
-1. 更新 `app/build.gradle.kts` 中的 `namespace` 和 `applicationId`
-2. 重命名 `java/com/java/myapplication` 目录结构
-3. 更新 `AndroidManifest.xml` 中的包名引用
-
-### 修改主题颜色
-编辑 `app/src/main/java/.../ui/theme/Color.kt`：
-```kotlin
-val Purple80 = Color(0xFFD0BCFF)  // 修改为你的颜色
-```
-
-## 📱 Compose 示例
-
-当前 `MainActivity.kt` 包含一个简单的 Greeting 示例：
-
-```kotlin
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-```
-
-你可以：
-- 添加更多 Composable 函数
-- 使用 Material3 组件
-- 实现导航（推荐使用 Navigation Compose）
-- 集成 ViewModel、Repository 等架构组件
-
-## 🔧 常用 Gradle 任务
-
-```bash
-./gradlew tasks              # 查看所有可用任务
-./gradlew clean              # 清理构建
-./gradlew build              # 完整构建
-./gradlew assembleDebug      # 构建Debug APK
-./gradlew assembleRelease    # 构建Release APK
-./gradlew installDebug       # 安装Debug到设备
-./gradlew test               # 运行单元测试
-./gradlew connectedAndroidTest # 运行Android测试
-```
-
-## 📝 注意事项
-
-⚠️ **关于 Android SDK**  
-- 此模板可以在 Operit 的 Ubuntu 环境中构建
-- 完整编译需要安装 Android SDK
-- 推荐使用 Android Studio 进行完整开发
-
-### ⚠️ ARM64 环境 AAPT2 替换（模板已内置）
-
-Gradle 会自动从 Google Maven 下载 AAPT2，但官方分发在 ARM64 Linux 环境下不可直接使用。
-此模板已经内置 ARM64 `aapt2`，`setup_android_env.sh` 会自动把它替换到 SDK build-tools 和 Gradle 缓存里。
-
-**模板内置来源**：
-- Release: https://github.com/ReVanced/aapt2/releases/tag/v1.0.0
-- ARM64 aapt2: https://github.com/ReVanced/aapt2/releases/download/v1.0.0/aapt2-arm64-v8a
-- SHA-256: `e5b5ff7f0d4f6ecd7fa5d05d77fed3f09f6f1bf80f078b8aada82bc578848561`
-
-**你只需要执行**
 ```bash
 chmod +x ./setup_android_env.sh
-./setup_android_env.sh
+./setup_android_env.sh      # 安装 JDK、Android SDK、替换 ARM64 AAPT2
+./gradlew assembleDebug
 ```
 
-脚本会自动完成：
-- 替换 `$ANDROID_SDK/build-tools/35.0.0/aapt2`
-- 替换 `~/.gradle/caches/modules-2/files-2.1/com.android.tools.build/aapt2` 下的 jar 内二进制
-- 替换 `~/.gradle/caches/transforms-*` 中已经解压出来的 `aapt2`
+APK 输出路径：`app/build/outputs/apk/debug/app-debug.apk`
 
-⚠️ **关于包名**  
-- 默认包名为 `com.java.myapplication`
-- 发布前请修改为你的唯一包名
+---
 
-⚠️ **关于签名**  
-- Debug 版本自动使用调试签名
-- Release 版本需要配置签名密钥
+## 颜色方案
 
-## 🌐 相关资源
+| 角色 | 浅色 | 深色 |
+|---|---|---|
+| primary | `#1976D2` | `#9ECAFF` |
+| primaryContainer | `#D1E4FF` | `#00497D` |
+| background / surface | `#FDFCFF` | `#1A1C1E` |
+| secondary | `#535F70` | `#BAC8DC` |
+| error | `#BA1A1A` | `#FFB4AB` |
 
-- [Jetpack Compose 官方文档](https://developer.android.com/jetpack/compose)
+Android 12+ 设备默认启用 Material You 动态取色；如需固定蓝色品牌色，在 `AndroidStarterTheme(dynamicColor = false)` 处传入 `false`。
+
+---
+
+## ARM64 AAPT2 说明
+
+`tools/aapt2/aapt2-arm64-v8a` 来源：
+- Release: https://github.com/ReVanced/aapt2/releases/tag/v1.0.0
+- SHA-256: `e5b5ff7f0d4f6ecd7fa5d05d77fed3f09f6f1bf80f078b8aada82bc578848561`
+
+`app/build.gradle.kts` 中的 `resolutionStrategy` 仅在 **Linux aarch64** 主机上激活，GitHub Actions 的 `ubuntu-latest`（x86_64）不受影响。
+
+---
+
+## 相关资源
+
+- [Jetpack Compose 文档](https://developer.android.com/jetpack/compose)
 - [Material Design 3](https://m3.material.io/)
-- [Android 开发者指南](https://developer.android.com/)
-- [Kotlin 官方文档](https://kotlinlang.org/)
-
-## 💡 提示
-
-- 使用 `./gradlew --scan` 可以查看详细的构建分析
-- 使用 `./gradlew build --info` 查看详细构建日志
-- 修改 `gradle.properties` 可以调整构建性能
-
-Happy Coding! 🤖✨
+- [Navigation Compose](https://developer.android.com/guide/navigation/design)
+- [DataStore](https://developer.android.com/topic/libraries/architecture/datastore)
