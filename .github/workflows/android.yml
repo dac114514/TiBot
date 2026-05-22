@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +28,31 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Rename APK with commit hash
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          mv app/build/outputs/apk/debug/app-debug.apk \
+             app/build/outputs/apk/debug/android-starter-debug-${SHORT_SHA}.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Update rolling release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Debug Build
+          body: |
+            自动构建的最新 Debug APK。
+
+            **提交**：`${{ github.sha }}`
+            **分支**：`${{ github.ref_name }}`
+            **时间**：${{ github.event.head_commit.timestamp }}
+
+            > 此 Release 在每次推送后自动更新。
+          prerelease: true
+          make_latest: false
+          files: app/build/outputs/apk/debug/*.apk
