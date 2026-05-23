@@ -14,37 +14,44 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColors = lightColorScheme(
-    primary = Blue700,
-    onPrimary = NearWhite,
-    primaryContainer = Blue100,
-    onPrimaryContainer = BlueDark,
-    secondary = GreySecondary,
-    onSecondary = NearWhite,
-    secondaryContainer = BlueGrey100,
-    onSecondaryContainer = BlueDark,
-    background = NearWhite,
-    onBackground = DarkSurface,
-    surface = NearWhite,
-    onSurface = DarkSurface,
-    error = ErrorRed,
+private val LightColorScheme = lightColorScheme(
+    primary = BluePrimary,
+    onPrimary = OnBluePrimary,
+    primaryContainer = BluePrimaryContainer,
+    onPrimaryContainer = OnBluePrimaryContainer,
+    secondary = BlueSecondary,
+    onSecondary = OnBlueSecondary,
+    secondaryContainer = BlueSecondaryContainer,
+    onSecondaryContainer = OnBlueSecondaryContainer,
+    background = BlueBackground,
+    onBackground = OnBlueBackground,
+    surface = BlueSurface,
+    onSurface = OnBlueSurface,
+    surfaceVariant = BlueSurfaceVariant,
+    onSurfaceVariant = OnBlueSurfaceVariant,
+    outline = BlueOutline,
+    error = BlueError,
+    onError = OnBlueError,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = BlueLight,
-    onPrimary = BlueDark,
-    primaryContainer = BlueDarkContainer,
-    onPrimaryContainer = Blue100,
-    secondary = GreySecondaryDark,
-    onSecondary = DarkSurface,
-    secondaryContainer = GreySecondaryContainer,
-    onSecondaryContainer = BlueGrey100,
-    background = DarkSurface,
-    onBackground = DarkOnSurface,
-    surface = DarkSurface,
-    onSurface = DarkOnSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    error = ErrorRedDark,
+private val DarkColorScheme = darkColorScheme(
+    primary = BluePrimaryDark,
+    onPrimary = OnBluePrimaryDark,
+    primaryContainer = BluePrimaryContainerDark,
+    onPrimaryContainer = OnBluePrimaryContainerDark,
+    secondary = BlueSecondaryDark,
+    onSecondary = OnBlueSecondaryDark,
+    secondaryContainer = BlueSecondaryContainerDark,
+    onSecondaryContainer = OnBlueSecondaryContainerDark,
+    background = BlueBackgroundDark,
+    onBackground = OnBlueBackgroundDark,
+    surface = BlueSurfaceDark,
+    onSurface = OnBlueSurfaceDark,
+    surfaceVariant = BlueSurfaceVariantDark,
+    onSurfaceVariant = OnBlueSurfaceVariantDark,
+    outline = BlueOutlineDark,
+    error = BlueErrorDark,
+    onError = OnBlueErrorDark,
 )
 
 @Composable
@@ -58,8 +65,8 @@ fun AndroidStarterTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColors
-        else -> LightColors
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
     }
 
     val view = LocalView.current

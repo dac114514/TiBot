@@ -2,25 +2,40 @@ package com.example.androidstarter.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ===== LIGHT MODE BLUES =====
-val Blue800 = Color(0xFF1565C0)
-val Blue700 = Color(0xFF1976D2)
-val Blue600 = Color(0xFF1E88E5)
-val Blue100 = Color(0xFFD1E4FF)
-val BlueGrey100 = Color(0xFFD7E3F7)
-val NearWhite = Color(0xFFFDFCFF)
+// ===== LIGHT MODE =====
+val BluePrimary = Color(0xFF2962FF)        // 亮蓝色 primary
+val OnBluePrimary = Color(0xFFFFFFFF)
+val BluePrimaryContainer = Color(0xFFD6E3FF)
+val OnBluePrimaryContainer = Color(0xFF001B3E)
+val BlueSecondary = Color(0xFF535F70)
+val OnBlueSecondary = Color(0xFFFFFFFF)
+val BlueSecondaryContainer = Color(0xFFD7E3F7)
+val OnBlueSecondaryContainer = Color(0xFF101C2B)
+val BlueBackground = Color(0xFFFDFBFF)
+val OnBlueBackground = Color(0xFF1A1C1E)
+val BlueSurface = Color(0xFFFDFBFF)
+val OnBlueSurface = Color(0xFF1A1C1E)
+val BlueSurfaceVariant = Color(0xFFE0E2EC)
+val OnBlueSurfaceVariant = Color(0xFF44474E)
+val BlueOutline = Color(0xFF74777F)
+val BlueError = Color(0xFFBA1A1A)
+val OnBlueError = Color(0xFFFFFFFF)
 
-// ===== DARK MODE BLUES =====
-val BlueLight = Color(0xFF9ECAFF)
-val BlueDark = Color(0xFF003258)
-val BlueDarkContainer = Color(0xFF00497D)
-val DarkSurface = Color(0xFF1A1C1E)
-val DarkOnSurface = Color(0xFFE2E2E6)
-val DarkSurfaceVariant = Color(0xFF2C2E30)
-
-// ===== NEUTRALS & ACCENTS =====
-val GreySecondary = Color(0xFF535F70)
-val GreySecondaryDark = Color(0xFFBAC8DC)
-val GreySecondaryContainer = Color(0xFF3B4858)
-val ErrorRed = Color(0xFFBA1A1A)
-val ErrorRedDark = Color(0xFFFFB4AB)
+// ===== DARK MODE =====
+val BluePrimaryDark = Color(0xFFB0C5FF)
+val OnBluePrimaryDark = Color(0xFF002D6E)
+val BluePrimaryContainerDark = Color(0xFF004296)
+val OnBluePrimaryContainerDark = Color(0xFFD6E3FF)
+val BlueSecondaryDark = Color(0xFFBAC8DC)
+val OnBlueSecondaryDark = Color(0xFF253140)
+val BlueSecondaryContainerDark = Color(0xFF3B4858)
+val OnBlueSecondaryContainerDark = Color(0xFFD7E3F7)
+val BlueBackgroundDark = Color(0xFF1A1C1E)
+val OnBlueBackgroundDark = Color(0xFFE2E2E6)
+val BlueSurfaceDark = Color(0xFF1A1C1E)
+val OnBlueSurfaceDark = Color(0xFFE2E2E6)
+val BlueSurfaceVariantDark = Color(0xFF44474E)
+val OnBlueSurfaceVariantDark = Color(0xFFC4C6D0)
+val BlueOutlineDark = Color(0xFF8E9099)
+val BlueErrorDark = Color(0xFFFFB4AB)
+val OnBlueErrorDark = Color(0xFF690005)
