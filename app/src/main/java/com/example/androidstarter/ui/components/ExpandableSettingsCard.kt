@@ -41,7 +41,7 @@ fun ExpandableSettingsCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onToggle() }
+                    .clickable(onClick = onToggle)
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -65,8 +65,8 @@ fun ExpandableSettingsCard(
                 )
             }
             AnimatedVisibility(visible = expanded) {
-                Column {
-                    HorizontalDivider()
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(top = 0.dp))
                     content()
                 }
             }
