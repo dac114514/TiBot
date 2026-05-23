@@ -5,9 +5,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.androidstarter.ui.home.HomeScreen
-import com.example.androidstarter.ui.list.ListScreen
+import com.example.androidstarter.ui.display.DisplayScreen
 import com.example.androidstarter.ui.settings.SettingsScreen
+import com.example.androidstarter.ui.widget.WidgetScreen
 
 @Composable
 fun AppNavHost(
@@ -16,11 +16,11 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME,
+        startDestination = Routes.WIDGET,
         modifier = modifier,
     ) {
-        composable(Routes.HOME) { HomeScreen() }
-        composable(Routes.LIST) { ListScreen() }
+        composable(Routes.WIDGET) { WidgetScreen() }
+        composable(Routes.DISPLAY) { DisplayScreen() }
         composable(Routes.SETTINGS) { SettingsScreen() }
     }
 }
