@@ -6,11 +6,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,7 +65,7 @@ fun DownloadStep(
 
         Icon(
             imageVector = when (phase) {
-                Phase.DOWNLOADING -> Icons.AutoMirrored.Filled.ArrowDownward
+                Phase.DOWNLOADING -> Icons.Filled.KeyboardArrowDown
                 Phase.EXTRACTING, Phase.DEPLOYING -> Icons.Filled.Archive
                 Phase.DONE -> Icons.Filled.CheckCircle
                 Phase.ERROR -> Icons.Filled.Error
@@ -196,11 +196,13 @@ fun DownloadStep(
 
         val buttonEnabled = phase == Phase.READY || phase == Phase.ERROR || phase == Phase.DONE
         Button(
-            onClick = when (phase) {
-                Phase.READY -> onStartDownload
-                Phase.ERROR -> onRetry
-                Phase.DONE -> onLaunch
-                else -> {}
+            onClick = {
+                when (phase) {
+                    Phase.READY -> onStartDownload()
+                    Phase.ERROR -> onRetry()
+                    Phase.DONE -> onLaunch()
+                    else -> {}
+                }
             },
             enabled = buttonEnabled,
             modifier = Modifier.fillMaxWidth().height(48.dp),
