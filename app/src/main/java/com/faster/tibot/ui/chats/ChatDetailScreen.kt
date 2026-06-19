@@ -36,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -130,6 +132,9 @@ fun ChatDetailScreen(
             chatId = chatId,
             onSend = { text ->
                 vm.sendMessage(chatId, text)
+            },
+            onSendFile = { path, caption ->
+                vm.sendFile(chatId, path, caption)
             },
         )
     }
@@ -290,8 +295,19 @@ private fun MessageBubble(message: ChatMessage) {
 private fun ChatInputBar(
     chatId: Long,
     onSend: (String) -> Unit,
+    onSendFile: (String, String) -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            val path = it.path ?: it.toString()
+            onSendFile(path, "")
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -302,7 +318,7 @@ private fun ChatInputBar(
     ) {
         // Attachment button
         IconButton(
-            onClick = { /* TODO: file picker */ },
+            onClick = { filePickerLauncher.launch("*/*") },
             modifier = Modifier.size(40.dp),
         ) {
             Icon(
