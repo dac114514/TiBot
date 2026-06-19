@@ -21,6 +21,7 @@ import com.faster.tibot.data.BotConnectionStore
 import com.faster.tibot.data.ConnectionStatus
 import com.faster.tibot.data.proot.ProotManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 private val TelegramBlue = Color(0xFF2AABEE)
 private val TerminalBlack = Color(0xFF0D0D0D)
@@ -147,7 +148,7 @@ fun StartupTerminalDialog(
                         ) { Text("Back") }
                     }
                     Button(
-                        onClick = if (isTerminal) onBack else {},
+                        onClick = { if (isTerminal) onBack() },
                         enabled = !isTerminal,
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(12.dp),
