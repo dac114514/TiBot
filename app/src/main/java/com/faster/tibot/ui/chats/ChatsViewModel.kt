@@ -89,10 +89,11 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
                             id = "msg_${msg.messageId}",
                             chatId = msg.chatId,
                             text = msg.text,
-                            isOutgoing = false,
+                            isOutgoing = msg.messageId < 0,
                             senderName = msg.fromName,
                             time = SimpleDateFormat("HH:mm", Locale.getDefault())
                                 .format(Date(msg.date * 1000)),
+                            hasFile = msg.fileName.isNotBlank(),
                         )
                     }
                 } catch (_: Exception) {}
@@ -133,6 +134,17 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 botClient?.sendDocument(chatId, filePath, caption)
+                // Persist outgoing file message
+                val fileName = filePath.substringAfterLast("/")
+                messageStore.saveMessage(TelegramMessage(
+                    messageId = -System.currentTimeMillis(),
+                    chatId = chatId,
+                    chatTitle = "",
+                    text = caption.ifBlank { fileName },
+                    fromName = "我",
+                    date = System.currentTimeMillis() / 1000,
+                    fileName = fileName,
+                ))
             } catch (_: Exception) {}
         }
         val fileName = filePath.substringAfterLast("/")

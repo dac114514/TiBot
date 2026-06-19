@@ -43,6 +43,7 @@ class MessageStore(private val context: Context) {
                     put("text", msg.text)
                     put("fromName", msg.fromName)
                     put("date", msg.date)
+                    put("fileName", msg.fileName)
                 }
             )
             prefs[msgKey] = arr.toString()
@@ -96,6 +97,7 @@ class MessageStore(private val context: Context) {
                 text = obj.optString("text", ""),
                 fromName = obj.optString("fromName", ""),
                 date = obj.optLong("date", 0),
+                fileName = obj.optString("fileName", ""),
             )
         }
     }

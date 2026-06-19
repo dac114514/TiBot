@@ -135,19 +135,15 @@ class TelegramBotClient(private val token: String) {
                 ?: "",
             text = json.optString("text").takeIf { it.isNotBlank() }
                 ?: json.optString("caption").takeIf { it.isNotBlank() }
-                ?: when {
-                    json.has("photo") -> "[图片]"
-                    json.has("video") -> "[视频]"
-                    json.has("document") -> "[文件]"
-                    json.has("audio") -> "[音频]"
-                    json.has("voice") -> "[语音]"
-                    json.has("sticker") -> "[贴纸]"
-                    else -> ""
-                },
+                ?: "",
             fromName = from?.optString("first_name")
                 ?: from?.optString("username")
                 ?: "",
             date = json.optLong("date", 0),
+            fileName = json.optJSONObject("document")?.optString("file_name", "")
+                ?: json.optJSONObject("video")?.optString("file_name", "")
+                ?: json.optJSONObject("audio")?.optString("file_name", "")
+                ?: "",
         )
     }
 }

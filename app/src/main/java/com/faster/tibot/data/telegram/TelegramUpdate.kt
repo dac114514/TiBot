@@ -7,6 +7,7 @@ data class TelegramMessage(
     val text: String,
     val fromName: String,
     val date: Long,
+    val fileName: String = "",
 )
 
 data class TelegramUpdate(
