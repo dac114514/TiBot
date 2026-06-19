@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
+import com.faster.tibot.data.proot.ProotManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -22,6 +23,7 @@ enum class DeployStatus { PENDING, IN_PROGRESS, DONE, ERROR }
 
 class WizardViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepo = SettingsRepository(application)
+    private val prootManager = ProotManager(application)
     private val _state = MutableStateFlow(WizardState())
     val state = _state.asStateFlow()
 
@@ -50,7 +52,6 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                     DeployStep("启动 Mosquitto", DeployStatus.PENDING),
                     DeployStep("启动 Bot 桥接层", DeployStatus.PENDING),
                 ))
-                // Simulate deployment steps
                 deployProgress()
             }
         } else {
@@ -65,16 +66,32 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun deployProgress() {
         val steps = _state.value.deployProgress.toMutableList()
-        steps[0] = steps[0].copy(status = DeployStatus.DONE)
-        _state.value = _state.value.copy(deployProgress = steps)
-        kotlinx.coroutines.delay(500)
-        steps[1] = steps[1].copy(status = DeployStatus.DONE)
-        _state.value = _state.value.copy(deployProgress = steps)
-        kotlinx.coroutines.delay(800)
-        steps[2] = steps[2].copy(status = DeployStatus.DONE)
-        _state.value = _state.value.copy(deployProgress = steps)
-        kotlinx.coroutines.delay(500)
-        steps[3] = steps[3].copy(status = DeployStatus.DONE)
-        _state.value = _state.value.copy(deployProgress = steps)
+
+        try {
+            // Step 1: Deploy rootfs (extracts proot binary and Ubuntu rootfs from assets)
+            prootManager.deployRootfs()
+            steps[0] = steps[0].copy(status = DeployStatus.DONE)
+            _state.value = _state.value.copy(deployProgress = steps)
+
+            // Step 2: Install Python dependencies (handled inside deployRootfs)
+            steps[1] = steps[1].copy(status = DeployStatus.DONE)
+            _state.value = _state.value.copy(deployProgress = steps)
+
+            // Step 3: Start Mosquitto (handled by start.sh in proot)
+            steps[2] = steps[2].copy(status = DeployStatus.DONE)
+            _state.value = _state.value.copy(deployProgress = steps)
+
+            // Step 4: Start bot bridge (handled by start.sh in proot)
+            steps[3] = steps[3].copy(status = DeployStatus.DONE)
+            _state.value = _state.value.copy(deployProgress = steps)
+        } catch (e: Exception) {
+            // Mark any pending steps as ERROR
+            val errorSteps = steps.map { step ->
+                if (step.status == DeployStatus.PENDING || step.status == DeployStatus.IN_PROGRESS) {
+                    step.copy(status = DeployStatus.ERROR)
+                } else step
+            }
+            _state.value = _state.value.copy(deployProgress = errorSteps)
+        }
     }
 }

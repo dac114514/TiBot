@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import org.eclipse.paho.android.service.MqttAndroidClient
 import org.eclipse.paho.client.mqttv3.*
 
-class MqttManager(private val context: Context) {
+class MqttManager private constructor(private val context: Context) {
 
     private val TAG = "MqttManager"
     private val brokerUrl = "tcp://127.0.0.1:1883"
@@ -21,6 +21,17 @@ class MqttManager(private val context: Context) {
     val connectionState: Flow<Boolean> = _connectionState.receiveAsFlow()
 
     data class MqttMessageEvent(val topic: String, val payload: String)
+
+    companion object {
+        @Volatile
+        private var instance: MqttManager? = null
+
+        fun getInstance(context: Context): MqttManager {
+            return instance ?: synchronized(this) {
+                instance ?: MqttManager(context.applicationContext).also { instance = it }
+            }
+        }
+    }
 
     fun connect() {
         if (client?.isConnected == true) return
@@ -54,6 +65,10 @@ class MqttManager(private val context: Context) {
 
     fun subscribe(topic: String, qos: Int = 1) {
         client?.subscribe(topic, qos)
+    }
+
+    fun unsubscribe(topic: String) {
+        client?.unsubscribe(topic)
     }
 
     fun publish(topic: String, payload: String, qos: Int = 1) {

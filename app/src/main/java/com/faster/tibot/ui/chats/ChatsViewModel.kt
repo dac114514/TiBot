@@ -1,10 +1,16 @@
 package com.faster.tibot.ui.chats
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.faster.tibot.data.mqtt.MqttManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class ChatSummary(
     val chatId: Long,
@@ -25,7 +31,9 @@ data class ChatMessage(
     val hasFile: Boolean = false,
 )
 
-class ChatsViewModel : ViewModel() {
+class ChatsViewModel(application: Application) : AndroidViewModel(application) {
+    private val mqtt = MqttManager.getInstance(application)
+
     private val _chats = MutableStateFlow(listOf<ChatSummary>())
     val chats = _chats.asStateFlow()
 
@@ -35,8 +43,21 @@ class ChatsViewModel : ViewModel() {
     private val _activeChatId = MutableStateFlow<Long?>(null)
     val activeChatId = _activeChatId.asStateFlow()
 
+    private var lastSubscribedTopic: String? = null
+
+    private val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+
     init {
-        // Sample data for development / demo
+        mqtt.connect()
+
+        // Listen for incoming MQTT messages
+        viewModelScope.launch {
+            mqtt.messages.collect { event ->
+                handleIncomingMessage(event.topic, event.payload)
+            }
+        }
+
+        // Load sample data for development until backend sends real data
         _chats.value = listOf(
             ChatSummary(
                 chatId = 1001L,
@@ -81,17 +102,113 @@ class ChatsViewModel : ViewModel() {
         )
     }
 
+    private fun handleIncomingMessage(topic: String, payload: String) {
+        try {
+            val json = JSONObject(payload)
+            when {
+                // Incoming chat message from tibot/msg/in/{chatId}
+                topic.startsWith("tibot/msg/in/") -> {
+                    val chatId = topic.removePrefix("tibot/msg/in/").toLongOrNull() ?: return
+                    val msg = ChatMessage(
+                        id = json.optString("message_id", "msg_${System.currentTimeMillis()}"),
+                        chatId = chatId,
+                        text = json.optString("text", ""),
+                        isOutgoing = false,
+                        senderName = json.optString("sender_name", ""),
+                        time = json.optString("timestamp", timeFormatter.format(Date())),
+                    )
+                    if (_activeChatId.value == chatId) {
+                        _messages.value = _messages.value + msg
+                    }
+                    // Update chat summary
+                    updateChatSummary(chatId, json.optString("sender_name", ""), msg.text, msg.time)
+                }
+                // Chat list response from tibot/chat/list/response
+                topic == "tibot/chat/list/response" -> {
+                    val chatsArray = json.optJSONArray("chats") ?: return
+                    val chatList = mutableListOf<ChatSummary>()
+                    for (i in 0 until chatsArray.length()) {
+                        val chatObj = chatsArray.getJSONObject(i)
+                        chatList.add(
+                            ChatSummary(
+                                chatId = chatObj.getLong("chat_id"),
+                                title = chatObj.optString("title", "Chat ${chatObj.getLong("chat_id")}"),
+                                lastMessage = chatObj.optString("last_message", ""),
+                                lastMessageTime = chatObj.optString("last_message_time", ""),
+                                unreadCount = chatObj.optInt("unread_count", 0),
+                                avatarLetter = chatObj.optString("title", "?").firstOrNull() ?: '?',
+                            )
+                        )
+                    }
+                    _chats.value = chatList
+                }
+                // Incoming file notification
+                topic.startsWith("tibot/msg/file/") -> {
+                    val chatId = topic.removePrefix("tibot/msg/file/").toLongOrNull() ?: return
+                    val msg = ChatMessage(
+                        id = json.optString("message_id", "file_${System.currentTimeMillis()}"),
+                        chatId = chatId,
+                        text = json.optString("caption", "[文件] ${json.optString("file_name", "")}"),
+                        isOutgoing = false,
+                        senderName = json.optString("sender_name", ""),
+                        time = json.optString("timestamp", timeFormatter.format(Date())),
+                        hasFile = true,
+                    )
+                    if (_activeChatId.value == chatId) {
+                        _messages.value = _messages.value + msg
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // Ignore malformed JSON
+        }
+    }
+
+    private fun updateChatSummary(chatId: Long, senderName: String, text: String, time: String) {
+        _chats.value = _chats.value.map { chat ->
+            if (chat.chatId == chatId) {
+                chat.copy(
+                    lastMessage = if (senderName.isNotEmpty()) "$senderName: $text" else text,
+                    lastMessageTime = time,
+                    unreadCount = chat.unreadCount + 1,
+                )
+            } else chat
+        }
+    }
+
     fun selectChat(chatId: Long) {
         _activeChatId.value = chatId
-        // TODO: subscribe to MQTT tibot/msg/in/{chatId}
-        // TODO: request history via MQTT tibot/chat/history/{chatId}
 
-        // Load sample messages for the selected chat
+        // Unsubscribe from previous chat topic
+        lastSubscribedTopic?.let { mqtt.unsubscribe(it) }
+
+        // Subscribe to incoming messages for this chat
+        val topic = "tibot/msg/in/$chatId"
+        mqtt.subscribe(topic)
+        lastSubscribedTopic = topic
+
+        // Also subscribe to file notifications for this chat
+        mqtt.subscribe("tibot/msg/file/$chatId")
+
+        // Request chat history via MQTT
+        val requestJson = JSONObject().apply {
+            put("chat_id", chatId)
+            put("action", "history")
+        }
+        mqtt.publish("tibot/chat/history/$chatId", requestJson.toString())
+
+        // Load sample messages for the selected chat (as fallback)
         _messages.value = sampleMessagesForChat(chatId)
     }
 
     fun sendMessage(chatId: Long, text: String) {
-        // TODO: publish to MQTT tibot/msg/out/{chatId}
+        // Publish message to MQTT
+        val envelope = JSONObject().apply {
+            put("chat_id", chatId)
+            put("text", text)
+            put("timestamp", timeFormatter.format(Date()))
+        }
+        mqtt.publish("tibot/msg/out/$chatId", envelope.toString())
 
         // Optimistically add the message locally
         val newMsg = ChatMessage(
@@ -100,18 +217,46 @@ class ChatsViewModel : ViewModel() {
             text = text,
             isOutgoing = true,
             senderName = "我",
-            time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-                .format(java.util.Date()),
+            time = timeFormatter.format(Date()),
         )
         _messages.value = _messages.value + newMsg
     }
 
     fun sendFile(chatId: Long, filePath: String, caption: String = "") {
-        // TODO: publish to MQTT tibot/msg/file/{chatId}
+        val fileName = filePath.substringAfterLast("/")
+        val envelope = JSONObject().apply {
+            put("chat_id", chatId)
+            put("file_path", filePath)
+            put("file_name", fileName)
+            put("caption", caption)
+            put("timestamp", timeFormatter.format(Date()))
+        }
+        mqtt.publish("tibot/msg/file/$chatId", envelope.toString())
+
+        // Optimistically add a local placeholder message
+        val displayText = if (caption.isNotBlank()) "[文件: $fileName] $caption" else "[文件: $fileName]"
+        val newMsg = ChatMessage(
+            id = "file_${System.currentTimeMillis()}",
+            chatId = chatId,
+            text = displayText,
+            isOutgoing = true,
+            senderName = "我",
+            time = timeFormatter.format(Date()),
+            hasFile = true,
+        )
+        _messages.value = _messages.value + newMsg
     }
 
     fun refreshChats() {
-        // TODO: request via MQTT tibot/chat/list
+        val requestJson = JSONObject().apply {
+            put("action", "list")
+        }
+        mqtt.publish("tibot/chat/list", requestJson.toString())
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        lastSubscribedTopic?.let { mqtt.unsubscribe(it) }
     }
 
     private fun sampleMessagesForChat(chatId: Long): List<ChatMessage> {
