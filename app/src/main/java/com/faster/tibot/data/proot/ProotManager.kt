@@ -38,6 +38,9 @@ class ProotManager(private val context: Context) {
         return ok
     }
 
+    fun isBootstrapDone(): Boolean =
+        File(filesDir, "rootfs/home/tibot/.tibot_bootstrap_done").exists()
+
     fun isRunning(): Boolean = process?.isAlive == true
 
     fun getProotBinary(): File {

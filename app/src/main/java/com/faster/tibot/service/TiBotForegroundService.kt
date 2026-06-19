@@ -63,38 +63,75 @@ class TiBotForegroundService : Service() {
             }
             Log.i("TiBotService", "proot process started successfully")
 
-            // Step 2: Connect MQTT
+            // Step 2: Wait for bootstrap to complete (first boot only, up to 10 min)
+            val bootstrapTimeout = 600
+            if (!prootManager.isBootstrapDone()) {
+                Log.i("TiBotService", "Bootstrap not done, waiting (up to ${bootstrapTimeout}s)...")
+                for (elapsed in (bootstrapTimeout downTo 0 step 5)) {
+                    delay(5_000)
+                    if (!prootManager.isRunning()) {
+                        val tail = prootManager.getLastOutputLines(8)
+                        Log.e("TiBotService", "proot exited during bootstrap")
+                        updateNotification("Bot 启动失败")
+                        BotConnectionStore.setStatus(ConnectionStatus.CRASHED,
+                            "proot exited during bootstrap\n$tail")
+                        stopSelf()
+                        return@launch
+                    }
+                    updateNotification("正在安装依赖... (${elapsed}s)")
+                    if (prootManager.isBootstrapDone()) break
+                }
+                if (!prootManager.isBootstrapDone()) {
+                    val tail = prootManager.getLastOutputLines(8)
+                    Log.e("TiBotService", "bootstrap timeout after ${bootstrapTimeout}s")
+                    updateNotification("Bot 启动失败")
+                    BotConnectionStore.setStatus(ConnectionStatus.TIMEOUT,
+                        "bootstrap 超时 (10min)\n$tail")
+                    stopSelf()
+                    return@launch
+                }
+                Log.i("TiBotService", "Bootstrap complete")
+            }
+
+            // Step 3: Connect MQTT (proot is ready)
             mqtt.connect()
 
             // Subscribe to bot status topic before waiting
             mqtt.subscribe("tibot/status")
 
-            // Step 3: Monitor MQTT connection state
+            // Step 4: Monitor MQTT connection state — don't overwrite terminal states
             launch {
                 mqtt.connectionState.collect { connected ->
                     if (!connected) {
-                        BotConnectionStore.setStatus(ConnectionStatus.OFFLINE, "MQTT 连接断开")
+                        // Only update to OFFLINE if not already in a terminal state
+                        val current = BotConnectionStore.currentStatus
+                        if (current != ConnectionStatus.TIMEOUT &&
+                            current != ConnectionStatus.CRASHED) {
+                            BotConnectionStore.setStatus(ConnectionStatus.OFFLINE, "MQTT 连接断开")
+                        }
+                        updateNotification("MQTT 连接断开")
                     }
                 }
             }
 
-            // Step 4: Wait for bot_running: true with 30s timeout
-            val ready = waitForBotReady(30_000L)
+            // Step 5: Wait for bot_running: true with 2 min timeout
+            val ready = waitForBotReady(120_000L)
             if (!ready) {
                 val isAlive = prootManager.isRunning()
                 val prootTail = prootManager.getLastOutputLines(8)
                 val errMsg = if (isAlive) {
-                    "Bot 启动超时 (30s) — 进程运行中但未就绪\nproot: $prootTail"
+                    "Bot 启动超时 (2min), alive=true\n$prootTail"
                 } else {
-                    "proot 进程已退出\nproot: $prootTail"
+                    "Bot 启动超时 (2min), alive=false\n$prootTail"
                 }
                 Log.e("TiBotService", "waitForBotReady timeout, alive=$isAlive, proot=$prootTail")
                 updateNotification("Bot 启动失败")
                 BotConnectionStore.setStatus(ConnectionStatus.TIMEOUT, errMsg)
+                stopSelf()
                 return@launch
             }
 
-            // Step 5: Bot is online!
+            // Step 6: Bot is online!
             BotConnectionStore.setStatus(ConnectionStatus.ONLINE)
             updateNotification("Bot 正在运行")
 

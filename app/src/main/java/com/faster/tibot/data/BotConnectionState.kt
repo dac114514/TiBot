@@ -14,6 +14,8 @@ object BotConnectionStore {
     private val _state = MutableStateFlow(BotConnectionState())
     val state = _state.asStateFlow()
 
+    val currentStatus: ConnectionStatus get() = _state.value.status
+
     fun setStatus(status: ConnectionStatus, reason: String = "") {
         _state.value = BotConnectionState(status, reason)
     }
