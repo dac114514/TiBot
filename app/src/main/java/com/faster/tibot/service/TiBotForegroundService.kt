@@ -37,8 +37,9 @@ class TiBotForegroundService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification("Bot 启动中..."))
 
         if (!prootManager.isRootfsDeployed()) {
-            Log.e("TiBotService", "RootFS not deployed, stopping")
-            BotConnectionStore.setStatus(ConnectionStatus.OFFLINE, "rootfs not deployed")
+            val errMsg = prootManager.lastError.ifEmpty { "rootfs not deployed (sh not found)" }
+            Log.e("TiBotService", "RootFS not deployed: $errMsg")
+            BotConnectionStore.setStatus(ConnectionStatus.OFFLINE, errMsg)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -53,8 +54,9 @@ class TiBotForegroundService : Service() {
             Log.i("TiBotService", "Calling prootManager.startProot()...")
             val proc = prootManager.startProot()
             if (proc == null) {
-                Log.e("TiBotService", "proot start returned null — container crashed immediately")
-                BotConnectionStore.setStatus(ConnectionStatus.CRASHED, "proot 启动失败")
+                val errMsg = prootManager.lastError.ifEmpty { "未知错误" }
+                Log.e("TiBotService", "proot start returned null: $errMsg")
+                BotConnectionStore.setStatus(ConnectionStatus.CRASHED, "proot 启动失败: $errMsg")
                 stopSelf()
                 return@launch
             }
@@ -78,7 +80,10 @@ class TiBotForegroundService : Service() {
             // Step 4: Wait for bot_running: true with 30s timeout
             val ready = waitForBotReady(30_000L)
             if (!ready) {
-                BotConnectionStore.setStatus(ConnectionStatus.TIMEOUT, "Bot 启动超时，请检查 Token 或网络")
+                val isAlive = prootManager.isRunning()
+                val errMsg = if (isAlive) "Bot 启动超时 (60s)" else "proot 进程已退出 (可能是依赖安装失败或 start.sh 报错)"
+                Log.e("TiBotService", "waitForBotReady timeout, process alive=$isAlive")
+                BotConnectionStore.setStatus(ConnectionStatus.TIMEOUT, errMsg)
                 return@launch
             }
 

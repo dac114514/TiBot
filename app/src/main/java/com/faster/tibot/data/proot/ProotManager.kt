@@ -19,6 +19,8 @@ class ProotManager(private val context: Context) {
     private var process: Process? = null
     private var restartCount = 0
     val maxRestarts = 3
+    var lastError: String = ""
+        private set
 
     fun isRootfsDeployed(): Boolean {
         // Check both usrmerge (bin->usr/bin) and traditional paths
@@ -40,16 +42,19 @@ class ProotManager(private val context: Context) {
 
     suspend fun startProot(): Process? = withContext(Dispatchers.IO) {
         if (!isRootfsDeployed()) {
-            Log.e(TAG, "startProot FAILED: rootfs not deployed")
+            lastError = "rootfs not deployed (sh not found or not executable)"
+            Log.e(TAG, "startProot FAILED: $lastError")
             return@withContext null
         }
         val prootBinary = getProotBinary()
         if (!prootBinary.exists()) {
-            Log.e(TAG, "startProot FAILED: proot binary not found at ${prootBinary.absolutePath}")
+            lastError = "proot binary not found: ${prootBinary.absolutePath}"
+            Log.e(TAG, "startProot FAILED: $lastError")
             return@withContext null
         }
         if (!prootBinary.canExecute() && !prootBinary.setExecutable(true)) {
-            Log.e(TAG, "startProot FAILED: proot binary not executable: ${prootBinary.absolutePath}")
+            lastError = "proot binary not executable: ${prootBinary.absolutePath}"
+            Log.e(TAG, "startProot FAILED: $lastError")
             return@withContext null
         }
 
@@ -92,7 +97,8 @@ class ProotManager(private val context: Context) {
 
             p
         } catch (e: Exception) {
-            Log.e(TAG, "startProot FAILED: ${e.javaClass.simpleName}: ${e.message}", e)
+            lastError = "${e.javaClass.simpleName}: ${e.message}"
+            Log.e(TAG, "startProot FAILED: $lastError", e)
             null
         }
     }

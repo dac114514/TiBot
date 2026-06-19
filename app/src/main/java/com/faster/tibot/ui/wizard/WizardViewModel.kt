@@ -282,6 +282,8 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
 
     fun onLaunchGateway() {
         viewModelScope.launch {
+            // Always refresh assets on launch (handles upgrades from older versions)
+            rootfsDownloadMgr.copyAssets(rootfsDir)
             settingsRepo.markConfigured()
             val intent = android.content.Intent(app, com.faster.tibot.service.TiBotForegroundService::class.java)
             app.startForegroundService(intent)
