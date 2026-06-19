@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -220,7 +221,7 @@ class RootfsDownloadManager(private val context: Context) {
                 )
             )
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     suspend fun verifySha256(file: File, expectedSha256: String): Boolean =
         withContext(Dispatchers.IO) {
@@ -323,7 +324,7 @@ class RootfsDownloadManager(private val context: Context) {
         }
 
         emit(DownloadProgress(percent = 100, state = DownloadState.DONE, logs = logs.toList()))
-    }
+    }.flowOn(Dispatchers.IO)
 
     private fun decompressStream(file: File): java.io.InputStream? {
         return try {
