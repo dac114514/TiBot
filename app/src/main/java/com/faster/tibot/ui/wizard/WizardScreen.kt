@@ -33,34 +33,32 @@ fun WizardScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // Progress dots (hidden during deploy simulation)
-        if (state.currentStep < 3) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp),
-            ) {
-                (0..3).forEach { i ->
-                    val color by animateColorAsState(
-                        targetValue = when {
-                            i < state.currentStep -> MaterialTheme.colorScheme.primary
-                            i == state.currentStep -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.outlineVariant
-                        },
-                        label = "dotColor",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(
-                                width = if (i == state.currentStep) 24.dp else 8.dp,
-                                height = 8.dp,
-                            )
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(color),
-                    )
-                }
+        // Progress dots
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp),
+        ) {
+            (0..2).forEach { i ->
+                val color by animateColorAsState(
+                    targetValue = when {
+                        i < state.currentStep -> MaterialTheme.colorScheme.primary
+                        i == state.currentStep -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.outlineVariant
+                    },
+                    label = "dotColor",
+                )
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .size(
+                            width = if (i == state.currentStep) 24.dp else 8.dp,
+                            height = 8.dp,
+                        )
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(color),
+                )
             }
         }
 
@@ -79,26 +77,11 @@ fun WizardScreen(
                     adminId = state.adminId,
                     adminIdValid = state.adminIdValid,
                     onAdminChange = { vm.setAdminId(it) },
-                    onNext = { vm.nextStep() },
-                    onBack = { vm.prevStep() },
-                )
-                3 -> DownloadStep(
-                    phase = state.phase,
-                    subtitle = state.phaseSubtitle,
-                    progressPercent = state.progressPercent,
-                    downloadedBytes = state.downloadedBytes,
-                    totalBytes = state.totalBytes,
-                    speedBytesPerSec = state.speedBytesPerSec,
-                    logs = state.logs,
-                    mirrors = vm.mirrors,
-                    selectedMirrorId = state.selectedMirrorId,
-                    onMirrorSelect = { vm.setMirror(it) },
-                    onStartDownload = { vm.startDownload() },
-                    onRetry = { vm.startDownload() },
-                    onLaunch = {
-                        vm.onLaunchGateway()
+                    onNext = {
+                        vm.nextStep()
                         onComplete()
                     },
+                    onBack = { vm.prevStep() },
                 )
             }
         }
@@ -147,7 +130,6 @@ private fun WelcomeStep(onNext: () -> Unit) {
         val features = listOf(
             "接收和管理 Telegram 私聊/群聊消息" to "聊天",
             "关键词匹配 + 自动回复规则" to "规则",
-            "内置 Linux 终端 (PRoot)" to "终端",
             "自定义 Python 回复策略" to "脚本",
         )
         features.forEach { (text, _) ->
@@ -431,11 +413,10 @@ private fun AdminStep(
                 ),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("开始部署", style = MaterialTheme.typography.titleMedium)
+                Text("下一步", style = MaterialTheme.typography.titleMedium)
             }
 
             Spacer(Modifier.height(24.dp))
         }
     }
 }
-

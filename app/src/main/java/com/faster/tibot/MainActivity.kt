@@ -1,6 +1,5 @@
 package com.faster.tibot
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,11 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -25,12 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.faster.tibot.data.BotConnectionStore
-import com.faster.tibot.data.ConnectionStatus
 import com.faster.tibot.data.local.SettingsRepository
-import com.faster.tibot.service.TiBotForegroundService
-import com.faster.tibot.ui.common.OfflineDialog
-import com.faster.tibot.ui.common.StartupTerminalDialog
 import com.faster.tibot.ui.navigation.AppNavHost
 import com.faster.tibot.ui.navigation.Routes
 import com.faster.tibot.ui.theme.TiBotTheme
@@ -53,17 +45,13 @@ private fun AppRoot() {
     val settingsRepo = remember { SettingsRepository(context.applicationContext) }
     val isConfigured by settingsRepo.isConfigured.collectAsState(initial = false)
 
-    val connectionState by BotConnectionStore.state.collectAsState()
-    val botOnline = connectionState.status == ConnectionStatus.ONLINE
-
     val tabs = listOf(
         TabItem(Routes.CHATS, "消息", Icons.Outlined.Chat, Icons.Filled.Chat),
         TabItem(Routes.AUTO_REPLY, "自动回复", Icons.Outlined.Forum, Icons.Filled.Forum),
-        TabItem(Routes.TERMINAL, "终端", Icons.Outlined.Terminal, Icons.Filled.Terminal),
         TabItem(Routes.SETTINGS, "设置", Icons.Outlined.Settings, Icons.Filled.Settings),
     )
 
-    val showBottomBar = botOnline && (currentRoute in listOf(Routes.CHATS, Routes.AUTO_REPLY, Routes.TERMINAL, Routes.SETTINGS))
+    val showBottomBar = currentRoute in listOf(Routes.CHATS, Routes.AUTO_REPLY, Routes.SETTINGS)
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -97,30 +85,10 @@ private fun AppRoot() {
             }
         },
     ) { innerPadding ->
-        // Global startup terminal dialog (shown when bot is connecting)
-        StartupTerminalDialog(
-            show = isConfigured && (connectionState.status == ConnectionStatus.CONNECTING),
-            onBack = {
-                BotConnectionStore.setStatus(ConnectionStatus.ONLINE)
-                navController.navigate(Routes.SETTINGS) {
-                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                }
-            },
-        )
-        OfflineDialog(
-            onExit = { (context as? ComponentActivity)?.finishAffinity() },
-            onReconnect = {
-                BotConnectionStore.setStatus(ConnectionStatus.CONNECTING)
-                // Restart service triggers reconnect
-                context.startService(Intent(context, TiBotForegroundService::class.java))
-            },
-        )
-
         AppNavHost(
             navController = navController,
             modifier = Modifier.padding(innerPadding),
             isConfigured = isConfigured,
-            botOnline = botOnline,
         )
     }
 }

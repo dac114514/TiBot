@@ -20,17 +20,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -95,30 +91,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
         Spacer(Modifier.height(16.dp))
 
-        // 2. 容器管理
-        SettingsSection(icon = Icons.Filled.Storage, title = "容器管理") {
-            SettingsRow(
-                icon = Icons.Filled.Stop,
-                title = "停止容器",
-                onClick = { vm.stopContainer() },
-            )
-            PaddedDivider()
-            SettingsRow(
-                icon = Icons.Filled.Refresh,
-                title = "重启容器",
-                onClick = { vm.restartContainer() },
-            )
-            PaddedDivider()
-            SettingsRow(
-                icon = Icons.Filled.Description,
-                title = "容器日志",
-                onClick = { /* TODO: view container logs */ },
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // 3. 通用
+        // 2. 通用
         SettingsSection(icon = Icons.Filled.Settings, title = "通用") {
             ToggleRow(
                 title = "后台运行",
@@ -151,7 +124,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
         Spacer(Modifier.height(16.dp))
 
-        // 4. 管理员
+        // 3. 管理员
         SettingsSection(icon = Icons.Filled.Security, title = "管理员") {
             SettingsRow(
                 icon = Icons.Filled.PersonAdd,
@@ -177,7 +150,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
         Spacer(Modifier.height(16.dp))
 
-        // 5. 关于
+        // 4. 关于
         SettingsSection(icon = Icons.Filled.Info, title = "关于") {
             SettingsRow(
                 icon = Icons.Filled.PhoneAndroid,

@@ -1,24 +1,17 @@
 package com.faster.tibot.ui.settings
 
 import android.app.Application
-import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
 import com.faster.tibot.data.local.ThemeMode
-import com.faster.tibot.data.mqtt.MqttManager
-import com.faster.tibot.data.proot.ProotManager
-import com.faster.tibot.service.TiBotForegroundService
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application
     private val repo = SettingsRepository(application)
-    private val prootManager = ProotManager.getInstance(application)
-    private val mqtt = MqttManager.getInstance()
 
     val themeMode: StateFlow<ThemeMode> = repo.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)
@@ -31,14 +24,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun stopContainer() {
-        prootManager.stopProot()
-        app.stopService(Intent(app, TiBotForegroundService::class.java))
+        // No-op: container management removed in v2 direct-HTTP architecture
     }
 
     fun restartContainer() {
-        prootManager.stopProot()
-        app.startService(Intent(app, TiBotForegroundService::class.java))
+        // No-op: container management removed in v2 direct-HTTP architecture
     }
 
-    fun isContainerRunning(): Boolean = prootManager.isRunning()
+    fun isContainerRunning(): Boolean = false
 }
