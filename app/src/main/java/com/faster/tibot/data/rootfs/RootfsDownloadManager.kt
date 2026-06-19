@@ -185,7 +185,7 @@ class RootfsDownloadManager(private val context: Context) {
                                 tarIn.copyTo(fos)
                             }
                             // Preserve owner executable permission from tar entry mode
-                            if ((entry.mode and 0o100) != 0) {
+                            if ((entry.mode and 0x40) != 0) {
                                 destPath.setExecutable(true)
                             }
                             extracted++
