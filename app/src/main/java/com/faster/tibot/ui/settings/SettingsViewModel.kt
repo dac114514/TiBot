@@ -11,13 +11,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val repo = SettingsRepository(application)
 
-    private val prefs = SettingsRepository(application)
-
-    val themeMode: StateFlow<ThemeMode> = prefs.themeMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
+    val themeMode: StateFlow<ThemeMode> = repo.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)
 
     fun setThemeMode(mode: ThemeMode) {
-        viewModelScope.launch { prefs.setThemeMode(mode) }
+        viewModelScope.launch { repo.setThemeMode(mode) }
     }
 }
