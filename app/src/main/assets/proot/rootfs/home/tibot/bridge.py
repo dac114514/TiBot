@@ -17,6 +17,8 @@ MQTT_TOPIC_PREFIX = "tibot"
 
 # In-memory stores
 _chats: dict[int, dict] = {}
+_message_history: dict[int, list[dict]] = {}
+MAX_HISTORY_PER_CHAT = 200
 _autoreply_engine = AutoReplyEngine()
 _bot_app = None
 _mqtt_client = None
@@ -190,9 +192,8 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
             })
         elif rest.startswith("history/"):
             chat_id = int(rest.split("/")[-1])
-            # history would come from persistent storage; for MVP return last 50
             _publish(_make_topic("chat", "history", str(chat_id)), {
-                "messages": [],
+                "messages": _message_history.get(chat_id, []),
             })
 
     elif sub.startswith("llm/"):
@@ -212,6 +213,13 @@ async def _on_telegram_message(msg: TelegramMessage) -> None:
         "last_message_time": msg.date,
         "type": "group" if msg.chat_id < 0 else "private",
     }
+
+    # Append to message history
+    if msg.chat_id not in _message_history:
+        _message_history[msg.chat_id] = []
+    _message_history[msg.chat_id].append(msg.to_dict())
+    if len(_message_history[msg.chat_id]) > MAX_HISTORY_PER_CHAT:
+        _message_history[msg.chat_id] = _message_history[msg.chat_id][-MAX_HISTORY_PER_CHAT:]
 
     # Check auto-reply first
     reply = _autoreply_engine.check(msg)
