@@ -85,8 +85,7 @@ class ProotManager(private val context: Context) {
     // Clean up all downloaded/deployed files (for reset)
     fun cleanAll() {
         stopProot()
-        File(filesDir, "rootfs.tar.xz").delete()
-        File(filesDir, "rootfs.tar.xz.sha256").delete()
+        File(filesDir, "rootfs.tar.gz").delete()
         File(filesDir, "rootfs").deleteRecursively()
     }
 

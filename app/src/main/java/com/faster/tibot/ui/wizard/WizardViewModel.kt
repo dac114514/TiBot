@@ -38,11 +38,10 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
 
     private val app = application
     private val rootfsDownloadMgr = RootfsDownloadManager(application)
-    private val rootfsFile get() = File(app.filesDir, "rootfs.tar.xz")
+    private val rootfsFile get() = File(app.filesDir, "rootfs.tar.gz")
     private val rootfsDir get() = File(app.filesDir, "rootfs")
-    private val sha256Base = "https://github.com/dac114514/TiBot/releases/download/rootfs"
 
-    val mirrors = rootfsDownloadMgr.buildDefaultMirrors(sha256Base)
+    val mirrors = rootfsDownloadMgr.buildMirrors()
 
     fun setToken(token: String) {
         val valid = token.length > 20 && token.contains(":")
@@ -108,47 +107,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun verifyAndExtract() {
-        val currentMirror = mirrors.find { it.id == _state.value.selectedMirrorId } ?: return
-
-        // Download sha256 checksum file
         _state.value = _state.value.copy(
-            downloadProgress = DownloadProgress(state = DownloadState.VERIFYING, percent = 100)
+            downloadProgress = DownloadProgress(state = DownloadState.EXTRACTING, percent = 100)
         )
 
-        val sha256File = File(app.filesDir, "rootfs.tar.xz.sha256")
-        val sha256Url = currentMirror.url + ".sha256"
-        val sha256Downloaded = downloadSha256(sha256Url, sha256File)
-
-        val expectedSha256 = if (sha256Downloaded) {
-            try {
-                sha256File.readText().trim().split("\\s+".toRegex()).first()
-            } catch (_: Exception) { "" }
-        } else ""
-
-        // If we have an expected hash and verification fails, try next mirror
-        if (expectedSha256.isNotEmpty() && !rootfsDownloadMgr.verifySha256(rootfsFile, expectedSha256)) {
-            val tried = _state.value.triedMirrorIds + currentMirror.id
-            val nextMirror = mirrors.firstOrNull { it.id !in tried }
-            if (nextMirror != null) {
-                _state.value = _state.value.copy(
-                    selectedMirrorId = nextMirror.id,
-                    triedMirrorIds = tried,
-                )
-                startDownload()
-                return
-            } else {
-                _state.value = _state.value.copy(
-                    downloadProgress = DownloadProgress(
-                        state = DownloadState.ERROR,
-                        error = "文件校验失败，已尝试所有镜像源",
-                    )
-                )
-                return
-            }
-        }
-
-        // Extract
-        rootfsDownloadMgr.extractTarXz(rootfsFile, rootfsDir).collect { progress ->
+        rootfsDownloadMgr.extractTar(rootfsFile, rootfsDir).collect { progress ->
             _state.value = _state.value.copy(downloadProgress = progress)
             if (progress.state == DownloadState.DONE) {
                 // Move to deploy progress step
@@ -160,21 +123,9 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                     ),
                 )
                 deployProgress()
-            }
-        }
-    }
-
-    private suspend fun downloadSha256(url: String, destFile: File): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                java.net.URL(url).openStream().use { input ->
-                    destFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                true
-            } catch (_: Exception) {
-                false
+            } else if (progress.state == DownloadState.ERROR) {
+                // Extraction error — re-emit to UI
+                _state.value = _state.value.copy(downloadProgress = progress)
             }
         }
     }
