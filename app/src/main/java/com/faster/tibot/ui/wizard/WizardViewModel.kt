@@ -1,6 +1,7 @@
 package com.faster.tibot.ui.wizard
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
@@ -241,8 +242,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                 val f = File(rootfsDir, path)
                 val ok = if (label == "lib dir") f.isDirectory else f.exists()
                 if (!ok) {
+                    Log.w("WizardVM", "verifyRootfs: missing $path ($label)")
                     logs += LogLine("x missing: $path ($label)", LogLevel.ERROR)
                     allOk = false
+                } else {
+                    Log.d("WizardVM", "verifyRootfs: ok $path")
                 }
             }
 

@@ -3,6 +3,7 @@ package com.faster.tibot.service
 import android.app.*
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.faster.tibot.data.BotConnectionStore
 import com.faster.tibot.data.ConnectionStatus
@@ -36,23 +37,28 @@ class TiBotForegroundService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification("Bot 启动中..."))
 
         if (!prootManager.isRootfsDeployed()) {
+            Log.e("TiBotService", "RootFS not deployed, stopping")
             BotConnectionStore.setStatus(ConnectionStatus.OFFLINE, "rootfs not deployed")
             stopSelf()
             return START_NOT_STICKY
         }
 
+        Log.i("TiBotService", "RootFS deployed, starting proot container...")
         BotConnectionStore.setStatus(ConnectionStatus.CONNECTING)
 
         // Cancel any previous startup to avoid concurrent startup sequences
         startupJob?.cancel()
         startupJob = serviceScope.launch {
             // Step 1: Start proot
+            Log.i("TiBotService", "Calling prootManager.startProot()...")
             val proc = prootManager.startProot()
             if (proc == null) {
+                Log.e("TiBotService", "proot start returned null — container crashed immediately")
                 BotConnectionStore.setStatus(ConnectionStatus.CRASHED, "proot 启动失败")
                 stopSelf()
                 return@launch
             }
+            Log.i("TiBotService", "proot process started: pid=${proc.pid}")
 
             // Step 2: Connect MQTT
             mqtt.connect()

@@ -2,6 +2,7 @@ package com.faster.tibot.data.rootfs
 
 import android.app.DownloadManager
 import android.content.Context
+import android.util.Log
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -390,6 +391,8 @@ class RootfsDownloadManager(private val context: Context) {
      * Called after extraction completes, before verification.
      */
     suspend fun copyAssets(rootfsDir: File) = withContext(Dispatchers.IO) {
+        Log.d("RootfsDownloadMgr", "copyAssets: starting, rootfsDir=${rootfsDir.absolutePath}")
+
         // Copy proot binary
         val prootDest = File(rootfsDir, "usr/bin/proot")
         prootDest.parentFile?.mkdirs()
@@ -399,8 +402,10 @@ class RootfsDownloadManager(private val context: Context) {
                     input.copyTo(output)
                 }
             }
-            prootDest.setExecutable(true)
-        } catch (_: Exception) {
+            val ok = prootDest.setExecutable(true)
+            Log.i("RootfsDownloadMgr", "copyAssets: proot copied (${prootDest.length()} bytes, executable=$ok)")
+        } catch (e: Exception) {
+            Log.e("RootfsDownloadMgr", "copyAssets: proot copy FAILED: ${e.message}", e)
         }
 
         // Copy Python scripts from assets to rootfs/home/tibot/
@@ -408,8 +413,9 @@ class RootfsDownloadManager(private val context: Context) {
         tibotDir.mkdirs()
         val scriptDir = "proot/rootfs/home/tibot"
         try {
-            context.assets.list(scriptDir)?.forEach { name ->
-                // Skip subdirectories (like __pycache__)
+            val names = context.assets.list(scriptDir) ?: emptyArray()
+            var copied = 0
+            names.forEach { name ->
                 if (name.contains("/")) return@forEach
                 val destFile = File(tibotDir, name)
                 context.assets.open("$scriptDir/$name").use { input ->
@@ -418,8 +424,11 @@ class RootfsDownloadManager(private val context: Context) {
                     }
                 }
                 if (name == "start.sh") destFile.setExecutable(true)
+                copied++
             }
-        } catch (_: Exception) {
+            Log.i("RootfsDownloadMgr", "copyAssets: copied $copied scripts to home/tibot/")
+        } catch (e: Exception) {
+            Log.e("RootfsDownloadMgr", "copyAssets: script copy FAILED: ${e.message}", e)
         }
     }
 }
