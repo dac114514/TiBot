@@ -234,9 +234,7 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                     progressPercent = 100,
                     logs = updatedLogs,
                 )
-            } else {
-                sh.setExecutable(true)
-                if (sh.exists()) {
+            } else if (sh.setExecutable(true)) {
                     val updatedLogs = _state.value.logs.toMutableList()
                     updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
                     _state.value = _state.value.copy(
