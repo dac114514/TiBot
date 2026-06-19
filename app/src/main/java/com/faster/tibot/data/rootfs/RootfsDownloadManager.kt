@@ -418,6 +418,23 @@ class RootfsDownloadManager(private val context: Context) {
             return@withContext false
         }
 
+        // Copy required shared libraries for proot
+        val libDir = File(rootfsDir, "usr/lib")
+        libDir.mkdirs()
+        for (libName in listOf("libtalloc.so.2", "libandroid-shmem.so")) {
+            try {
+                context.assets.open("proot/$libName").use { input ->
+                    java.io.FileOutputStream(File(libDir, libName)).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                Log.d("RootfsDownloadMgr", "copyAssets: copied $libName (${File(libDir, libName).length()} bytes)")
+            } catch (e: Exception) {
+                Log.e("RootfsDownloadMgr", "copyAssets: $libName copy FAILED: ${e.message}", e)
+                return@withContext false
+            }
+        }
+
         // Copy Python scripts from assets to rootfs/home/tibot/
         val tibotDir = File(rootfsDir, "home/tibot")
         tibotDir.mkdirs()

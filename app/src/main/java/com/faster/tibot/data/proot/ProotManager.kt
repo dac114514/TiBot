@@ -85,6 +85,7 @@ class ProotManager(private val context: Context) {
         pb.directory(rootfsDir)
         pb.environment()["HOME"] = "/home/tibot"
         pb.environment()["TERM"] = "xterm-256color"
+        pb.environment()["LD_LIBRARY_PATH"] = File(filesDir, "rootfs/usr/lib").absolutePath
         pb.redirectErrorStream(true)
         try {
             val p = pb.start()

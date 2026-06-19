@@ -67,6 +67,7 @@ fun DownloadStep(
             imageVector = when (phase) {
                 Phase.DOWNLOADING -> Icons.Filled.KeyboardArrowDown
                 Phase.EXTRACTING, Phase.DEPLOYING -> Icons.Filled.Archive
+                Phase.CHECKING -> Icons.Filled.CheckCircle
                 Phase.DONE -> Icons.Filled.CheckCircle
                 Phase.ERROR -> Icons.Filled.Error
                 else -> Icons.Filled.CloudDownload
@@ -130,7 +131,7 @@ fun DownloadStep(
             Spacer(Modifier.height(12.dp))
         }
 
-        if (phase == Phase.DOWNLOADING || phase == Phase.EXTRACTING || phase == Phase.DEPLOYING) {
+        if (phase == Phase.DOWNLOADING || phase == Phase.EXTRACTING || phase == Phase.DEPLOYING || phase == Phase.CHECKING) {
             LinearProgressIndicator(
                 progress = { (progressPercent.toFloat() / 100f).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
@@ -219,6 +220,7 @@ fun DownloadStep(
                     Phase.READY -> "start download"
                     Phase.DOWNLOADING -> "downloading..."
                     Phase.EXTRACTING, Phase.DEPLOYING -> "deploying..."
+                    Phase.CHECKING -> "checking..."
                     Phase.DONE -> "launch"
                     Phase.ERROR -> "retry"
                 },

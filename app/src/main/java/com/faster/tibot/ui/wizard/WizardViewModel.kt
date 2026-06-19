@@ -17,7 +17,7 @@ import java.io.File
 import kotlin.io.walkTopDown
 
 enum class Phase {
-    IDLE, SPEED_TEST, READY, DOWNLOADING, EXTRACTING, DEPLOYING, DONE, ERROR
+    IDLE, SPEED_TEST, READY, DOWNLOADING, EXTRACTING, DEPLOYING, CHECKING, DONE, ERROR
 }
 
 enum class LogLevel { INFO, SUCCESS, ERROR, PROGRESS }
@@ -50,8 +50,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     private val rootfsDownloadMgr = RootfsDownloadManager(application)
     private val rootfsFile get() = File(app.getExternalFilesDir(null), "rootfs.tar.gz")
     private val rootfsDir get() = File(app.filesDir, "rootfs")
+    private val prootManager by lazy { com.faster.tibot.data.proot.ProotManager(app) }
 
     val mirrors = rootfsDownloadMgr.buildMirrors()
+
+    fun getProotManager() = prootManager
 
     fun setToken(token: String) {
         val valid = token.length > 20 && token.contains(":")
@@ -207,7 +210,7 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                         _state.value = _state.value.copy(phase = Phase.ERROR, phaseSubtitle = "asset copy failed", error = "failed to copy proot or scripts", logs = updatedLogs)
                         return@collect
                     }
-                    verifyRootfs()
+                    startPreflightChecks()
                     return@collect
                 }
                 DownloadState.ERROR -> {
@@ -226,63 +229,69 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private suspend fun verifyRootfs() {
-        val logs = _state.value.logs.toMutableList()
-        logs += LogLine("$ verify rootfs", LogLevel.INFO)
-        _state.value = _state.value.copy(phase = Phase.DEPLOYING, logs = logs)
-
-        withContext(Dispatchers.IO) {
-            // Must-exist critical paths (Ubuntu 24.04 usrmerge layout + proot + scripts)
-            val checks = listOf(
-                "usr/bin/sh" to "shell",
-                "usr/bin/bash" to "bash",
-                "usr/bin/dpkg" to "dpkg",
-                "usr/bin/proot" to "proot",
-                "etc/apt/sources.list.d/ubuntu.sources" to "apt sources",
-                "etc/os-release" to "os-release",
-                "usr/lib" to "lib dir",
-                "home/tibot/start.sh" to "start.sh",
-                "home/tibot/main.py" to "main.py",
-            )
+    fun startPreflightChecks() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(phase = Phase.CHECKING, phaseSubtitle = "checking prerequisites...")
+            val logs = _state.value.logs.toMutableList()
+            logs += LogLine("$ preflight check", LogLevel.INFO)
+            _state.value = _state.value.copy(logs = logs.toList())
 
             var allOk = true
-            for ((path, label) in checks) {
-                val f = File(rootfsDir, path)
-                val ok = if (label == "lib dir") f.isDirectory else f.exists()
-                if (!ok) {
-                    Log.w("WizardVM", "verifyRootfs: missing $path ($label)")
-                    logs += LogLine("x missing: $path ($label)", LogLevel.ERROR)
-                    allOk = false
-                } else {
-                    Log.d("WizardVM", "verifyRootfs: ok $path")
-                }
-            }
+            val checkItems = listOf(
+                "usr/bin/proot" to "proot binary",
+                "usr/lib/libtalloc.so.2" to "libtalloc.so.2",
+                "usr/lib/libandroid-shmem.so" to "libandroid-shmem.so",
+                "usr/bin/sh" to "shell (sh)",
+                "usr/bin/bash" to "bash",
+                "home/tibot/start.sh" to "start.sh",
+                "home/tibot/main.py" to "main.py",
+                "etc/apt/sources.list.d/ubuntu.sources" to "apt sources",
+                "usr/bin/dpkg" to "dpkg",
+            )
 
-            // Verify we have a reasonable number of files (not just a few extracted from a partial archive)
+            // Check file count
             var fileCount = 0
             rootfsDir.walkTopDown().forEach { fileCount++ }
-            if (fileCount < 3000) {
-                logs += LogLine("x only $fileCount files found (expected 3000+)", LogLevel.ERROR)
-                allOk = false
+            val countOk = fileCount >= 3000
+
+            for ((path, label) in checkItems) {
+                kotlinx.coroutines.delay(150) // visual pacing
+                val f = java.io.File(rootfsDir, path)
+                val ok = f.exists() && f.length() > 0
+                val newLogs = _state.value.logs.toMutableList()
+                val mark = if (ok) "v" else "x"
+                val level = if (ok) LogLevel.SUCCESS else LogLevel.ERROR
+                newLogs += LogLine("$mark $label ($path)", level)
+                _state.value = _state.value.copy(logs = newLogs.toList())
+                if (!ok) allOk = false
             }
 
+            // File count check
+            kotlinx.coroutines.delay(150)
+            val newLogs = _state.value.logs.toMutableList()
+            val mark = if (countOk) "v" else "x"
+            val level = if (countOk) LogLevel.SUCCESS else LogLevel.ERROR
+            newLogs += LogLine("$mark $fileCount files (min 3000)", level)
+            _state.value = _state.value.copy(logs = newLogs.toList())
+            if (!countOk) allOk = false
+
             if (allOk) {
-                val updatedLogs = _state.value.logs.toMutableList()
-                updatedLogs += LogLine("v rootfs verified ($fileCount files)", LogLevel.SUCCESS)
+                val finalLogs = _state.value.logs.toMutableList()
+                finalLogs += LogLine("v all checks passed", LogLevel.SUCCESS)
                 _state.value = _state.value.copy(
                     phase = Phase.DONE,
                     phaseSubtitle = "deploy complete",
                     progressPercent = 100,
-                    logs = updatedLogs,
+                    logs = finalLogs.toList(),
                 )
             } else {
-                val updatedLogs = _state.value.logs.toMutableList()
-                updatedLogs += LogLine("x rootfs verification failed", LogLevel.ERROR)
+                val finalLogs = _state.value.logs.toMutableList()
+                finalLogs += LogLine("x some checks failed", LogLevel.ERROR)
                 _state.value = _state.value.copy(
                     phase = Phase.ERROR,
-                    phaseSubtitle = "rootfs verification failed",
-                    error = "rootfs verification failed: critical files missing or incomplete",
-                    logs = updatedLogs,
+                    phaseSubtitle = "preflight check failed",
+                    error = "prerequisite checks failed",
+                    logs = finalLogs.toList(),
                 )
             }
         }
