@@ -244,8 +244,9 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                 "usr/bin/bash" to "bash",
                 "home/tibot/start.sh" to "start.sh",
                 "home/tibot/main.py" to "main.py",
-                "etc/apt/sources.list.d/ubuntu.sources" to "apt sources",
+                "etc/apt/sources.list" to "apt sources",
                 "usr/bin/dpkg" to "dpkg",
+                "tmp" to "tmp directory",
             )
 
             // Check file count
