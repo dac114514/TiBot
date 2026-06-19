@@ -10,6 +10,7 @@ import yaml
 from autoreply import AutoReplyEngine
 from models import TibotConfig, TibotEnvelope, TelegramMessage, AutoReplyRule
 from bot import start_bot, stop_bot
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 MQTT_TOPIC_PREFIX = "tibot"
@@ -19,7 +20,7 @@ _chats: dict[int, dict] = {}
 _autoreply_engine = AutoReplyEngine()
 _bot_app = None
 _mqtt_client = None
-_config: TibotConfig = None
+_config: Optional[TibotConfig] = None
 
 
 def load_config(path: str = "config.yaml") -> TibotConfig:
@@ -46,8 +47,11 @@ def _make_topic(*parts: str) -> str:
     return "/".join([MQTT_TOPIC_PREFIX, *parts])
 
 
-def _publish(topic: str, payload: dict) -> None:
-    env = TibotEnvelope(type=topic.split("/")[-1], payload=payload)
+def _publish(topic: str, payload: dict, msg_type: str = None) -> None:
+    if msg_type is None:
+        parts = topic.split("/")
+        msg_type = parts[-2] if len(parts) >= 2 else parts[-1]
+    env = TibotEnvelope(type=msg_type, payload=payload)
     _mqtt_client.publish(topic, json.dumps(env.to_dict()), qos=1)
 
 
@@ -58,6 +62,7 @@ def _on_connect(client, _userdata, _flags, rc) -> None:
     logger.info(f"MQTT connected (rc={rc})")
     # Subscribe to all control topics
     client.subscribe(_make_topic("msg/out/#"))
+    client.subscribe(_make_topic("msg/file/#"))
     client.subscribe(_make_topic("cmd/#"))
     client.subscribe(_make_topic("autoreply/#"))
     client.subscribe(_make_topic("chat/#"))
@@ -95,6 +100,11 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
         chat_id = int(sub.split("/")[-1])
         text = env.payload.get("text", "")
         reply_to = env.payload.get("reply_to")
+        if not text:
+            _publish(_make_topic("msg", "error"), {
+                "chat_id": chat_id, "error": "empty message",
+            })
+            return
         if _bot_app:
             await _bot_app.bot.send_message(
                 chat_id=chat_id, text=text,
@@ -103,10 +113,19 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
 
     elif sub.startswith("msg/file/"):
         chat_id = int(sub.split("/")[-1])
-        file_path = env.payload.get("path", "")
+        raw_path = env.payload.get("path", "")
         caption = env.payload.get("caption", "")
-        if _bot_app and file_path:
-            with open(file_path, "rb") as f:
+        if _bot_app and raw_path:
+            safe_dir = "/home/tibot/files"
+            import os
+            resolved = os.path.realpath(raw_path)
+            if not resolved.startswith(os.path.realpath(safe_dir)):
+                logger.warning(f"Blocked path traversal attempt: {raw_path}")
+                _publish(_make_topic("msg", "error"), {
+                    "chat_id": chat_id, "error": "path not allowed",
+                })
+                return
+            with open(resolved, "rb") as f:
                 await _bot_app.bot.send_document(
                     chat_id=chat_id, document=f, caption=caption,
                 )
@@ -119,10 +138,12 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
     elif sub == "cmd/exec":
         # Terminal command execution
         import subprocess
+        import shlex
         cmd = env.payload.get("command", "")
+        logger.warning(f"Executing shell command: {cmd}")
         try:
             result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, timeout=30,
+                shlex.split(cmd), capture_output=True, text=True, timeout=30,
             )
             _publish(_make_topic("cmd", "result"), {
                 "command": cmd,

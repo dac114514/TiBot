@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from telegram import Update
@@ -71,6 +70,10 @@ async def start_bot(
 
 async def stop_bot(app: Application) -> None:
     """Gracefully stop the bot."""
-    await app.updater.stop()
-    await app.stop()
-    await app.shutdown()
+    try:
+        await app.updater.stop()
+    finally:
+        try:
+            await app.stop()
+        finally:
+            await app.shutdown()
