@@ -2,51 +2,99 @@ package com.faster.tibot.data.proot
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import java.io.File
 
 class ProotManager(private val context: Context) {
 
     private val filesDir get() = context.filesDir
+    private var process: Process? = null
+    private var restartCount = 0
+    val maxRestarts = 3
 
-    fun isProotInstalled(): Boolean {
+    fun isRootfsDeployed(): Boolean {
         return File(filesDir, "rootfs/bin/sh").exists()
     }
 
-    fun getProotBinary(): File = File(filesDir, "proot/proot-arm64")
+    fun isRunning(): Boolean = process?.isAlive == true
 
-    fun getRootFsDir(): File = File(filesDir, "rootfs")
-
-    fun getStartScript(): File = File(filesDir, "rootfs/home/tibot/start.sh")
+    fun getProotBinary(): File = File(filesDir, "rootfs/usr/bin/proot")
+        .let { if (it.exists()) it else File(filesDir, "rootfs/bin/proot") }
 
     suspend fun startProot(): Process? = withContext(Dispatchers.IO) {
-        if (!isProotInstalled()) return@withContext null
+        if (!isRootfsDeployed()) return@withContext null
+        val prootBinary = getProotBinary()
+        if (!prootBinary.exists()) return@withContext null
+
+        val rootfsDir = File(filesDir, "rootfs")
         val pb = ProcessBuilder(
-            getProotBinary().absolutePath,
-            "-r", getRootFsDir().absolutePath,
+            prootBinary.absolutePath,
+            "-r", rootfsDir.absolutePath,
             "-w", "/home/tibot",
             "-b", "/dev",
             "-b", "/proc",
             "-b", "/sys",
             "/bin/bash", "-c", "cd /home/tibot && bash start.sh"
         )
-        pb.directory(getRootFsDir())
+        pb.directory(rootfsDir)
         pb.environment()["HOME"] = "/home/tibot"
         pb.environment()["TERM"] = "xterm-256color"
         pb.redirectErrorStream(true)
-        try { pb.start() } catch (e: Exception) { null }
+        try {
+            val p = pb.start()
+            process = p
+            restartCount = 0
+            p
+        } catch (e: Exception) {
+            null
+        }
     }
 
-    fun stopProot(process: Process?) {
-        process?.destroy()
+    fun stopProot() {
+        try {
+            process?.destroy()
+        } catch (_: Exception) {}
+        process = null
     }
 
+    fun getProcess(): Process? = process
+
+    fun getProcessOutput(): Flow<String> = flow {
+        val p = process ?: return@flow
+        withContext(Dispatchers.IO) {
+            try {
+                p.inputStream.bufferedReader().use { reader ->
+                    var line = reader.readLine()
+                    while (line != null) {
+                        emit(line)
+                        line = reader.readLine()
+                    }
+                }
+            } catch (_: Exception) {
+                // Stream closed
+            }
+        }
+    }
+
+    fun canAutoRestart(): Boolean = restartCount < maxRestarts
+
+    fun incrementRestartCount() { restartCount++ }
+
+    // Clean up all downloaded/deployed files (for reset)
+    fun cleanAll() {
+        stopProot()
+        File(filesDir, "rootfs.tar.xz").delete()
+        File(filesDir, "rootfs.tar.xz.sha256").delete()
+        File(filesDir, "rootfs").deleteRecursively()
+    }
+
+    /**
+     * No-op retained for backward compatibility with WizardViewModel.
+     * Rootfs is now downloaded and extracted by RootfsDownloadManager in Task 4.
+     */
     suspend fun deployRootfs() = withContext(Dispatchers.IO) {
-        // Step 1: Extract proot binary from assets
-        // Step 2: Extract Ubuntu rootfs from assets
-        // Step 3: chmod +x proot binary
-        // Step 4: Run initial pip install
-        // For MVP: mark as installed
-        File(filesDir, "rootfs/home/tibot").mkdirs()
+        // No-op: rootfs deployment is handled by RootfsDownloadManager
     }
 }
