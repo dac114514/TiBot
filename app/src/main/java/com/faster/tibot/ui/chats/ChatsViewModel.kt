@@ -52,8 +52,10 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val token = settingsRepo.botToken.first()
             botClient = if (token.isNotBlank()) TelegramBotClient(token) else null
-            try {
-                _chats.value = messageStore.getAllChats().map { cs ->
+        }
+        viewModelScope.launch {
+            messageStore.getAllChatsFlow().collect { list ->
+                _chats.value = list.map { cs ->
                     ChatSummary(
                         chatId = cs.chatId,
                         title = cs.chatTitle,
@@ -63,7 +65,6 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
                         avatarLetter = cs.chatTitle.firstOrNull() ?: '?',
                     )
                 }
-            } catch (_: Exception) {
             }
         }
     }

@@ -98,8 +98,8 @@ class MessageStore(private val context: Context) {
         }
     }
 
-    suspend fun getAllChats(): List<ChatSummary> {
-        val json = context.messageDataStore.data.first()[Keys.CHAT_LIST] ?: "[]"
+    fun getAllChatsFlow() = context.messageDataStore.data.map { prefs ->
+        val json = prefs[Keys.CHAT_LIST] ?: "[]"
         val arr = JSONArray(json)
         val chats = mutableListOf<ChatSummary>()
         for (i in 0 until arr.length()) {
@@ -114,8 +114,9 @@ class MessageStore(private val context: Context) {
                 )
             )
         }
-        // Most recent first
         chats.sortByDescending { it.lastTime }
-        return chats
+        chats
     }
+
+    suspend fun getAllChats(): List<ChatSummary> = getAllChatsFlow().first()
 }
