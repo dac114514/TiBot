@@ -7,57 +7,44 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColorScheme = lightColorScheme(
-    primary = ClaudePrimary,
-    onPrimary = ClaudeOnPrimary,
-    primaryContainer = ClaudePrimaryContainer,
-    onPrimaryContainer = ClaudeOnPrimaryContainer,
-    secondary = ClaudeSecondary,
-    onSecondary = ClaudeOnSecondary,
-    secondaryContainer = ClaudeSecondaryContainer,
-    onSecondaryContainer = ClaudeOnSecondaryContainer,
-    tertiary = ClaudeTertiary,
-    onTertiary = ClaudeOnTertiary,
-    tertiaryContainer = ClaudeTertiaryContainer,
-    onTertiaryContainer = ClaudeOnTertiaryContainer,
-    background = ClaudeBackground,
-    onBackground = ClaudeOnBackground,
-    surface = ClaudeSurface,
-    onSurface = ClaudeOnSurface,
-    surfaceVariant = ClaudeSurfaceVariant,
-    onSurfaceVariant = ClaudeOnSurfaceVariant,
-    outline = ClaudeOutline,
-    outlineVariant = ClaudeOutlineVariant,
-    error = ClaudeError,
-    onError = ClaudeOnError,
+private val TgDarkColorScheme = darkColorScheme(
+    primary = TgDarkAccentBlue,
+    onPrimary = TgDarkPrimaryText,
+    primaryContainer = TgDarkOutgoingBubble,
+    onPrimaryContainer = TgDarkPrimaryText,
+    secondary = TgDarkSecondaryText,
+    surface = TgDarkSurface,
+    onSurface = TgDarkPrimaryText,
+    surfaceVariant = TgDarkIncomingBubble,
+    onSurfaceVariant = TgDarkSecondaryText,
+    background = TgDarkChatBg,
+    onBackground = TgDarkPrimaryText,
+    outline = TgDarkIncomingBorder,
+    outlineVariant = TgDarkDivider,
+    error = TgDarkDanger,
+    onError = Color.White,
 )
 
-private val DarkColorScheme = darkColorScheme(
-    primary = ClaudePrimaryDark,
-    onPrimary = ClaudeOnPrimaryDark,
-    primaryContainer = ClaudePrimaryContainerDark,
-    onPrimaryContainer = ClaudeOnPrimaryContainerDark,
-    secondary = ClaudeSecondaryDark,
-    onSecondary = ClaudeOnSecondaryDark,
-    secondaryContainer = ClaudeSecondaryContainerDark,
-    onSecondaryContainer = ClaudeOnSecondaryContainerDark,
-    tertiary = ClaudeTertiaryDark,
-    onTertiary = ClaudeOnTertiaryDark,
-    tertiaryContainer = ClaudeTertiaryContainerDark,
-    onTertiaryContainer = ClaudeOnTertiaryContainerDark,
-    background = ClaudeBackgroundDark,
-    onBackground = ClaudeOnBackgroundDark,
-    surface = ClaudeSurfaceDark,
-    onSurface = ClaudeOnSurfaceDark,
-    surfaceVariant = ClaudeSurfaceVariantDark,
-    onSurfaceVariant = ClaudeOnSurfaceVariantDark,
-    outline = ClaudeOutlineDark,
-    outlineVariant = ClaudeOutlineVariantDark,
-    error = ClaudeErrorDark,
-    onError = ClaudeOnErrorDark,
+private val TgLightColorScheme = lightColorScheme(
+    primary = TgLightAccentBlue,
+    onPrimary = Color.White,
+    primaryContainer = TgLightOutgoingBubble,
+    onPrimaryContainer = TgLightPrimaryText,
+    secondary = TgLightSecondaryText,
+    surface = TgLightSurface,
+    onSurface = TgLightPrimaryText,
+    surfaceVariant = TgLightIncomingBubble,
+    onSurfaceVariant = TgLightSecondaryText,
+    background = TgLightChatBg,
+    onBackground = TgLightPrimaryText,
+    outline = Color(0xFFe0e0e0),
+    outlineVariant = TgLightDivider,
+    error = TgLightDanger,
+    onError = Color.White,
 )
 
 @Composable
@@ -65,8 +52,7 @@ fun TiBotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-
+    val colorScheme = if (darkTheme) TgDarkColorScheme else TgLightColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -74,7 +60,6 @@ fun TiBotTheme(
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
-
     MaterialTheme(
         colorScheme = colorScheme,
         typography = TgTypography,
