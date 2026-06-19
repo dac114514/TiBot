@@ -36,9 +36,10 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     private val _state = MutableStateFlow(WizardState())
     val state = _state.asStateFlow()
 
+    private val app = application
     private val rootfsDownloadMgr = RootfsDownloadManager(application)
-    private val rootfsFile get() = File(application.filesDir, "rootfs.tar.xz")
-    private val rootfsDir get() = File(application.filesDir, "rootfs")
+    private val rootfsFile get() = File(app.filesDir, "rootfs.tar.xz")
+    private val rootfsDir get() = File(app.filesDir, "rootfs")
     private val sha256Base = "https://github.com/dac114514/TiBot/releases/download/rootfs"
 
     val mirrors = rootfsDownloadMgr.buildDefaultMirrors(sha256Base)
@@ -114,7 +115,7 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
             downloadProgress = DownloadProgress(state = DownloadState.VERIFYING, percent = 100)
         )
 
-        val sha256File = File(application.filesDir, "rootfs.tar.xz.sha256")
+        val sha256File = File(app.filesDir, "rootfs.tar.xz.sha256")
         val sha256Url = currentMirror.url + ".sha256"
         val sha256Downloaded = downloadSha256(sha256Url, sha256File)
 

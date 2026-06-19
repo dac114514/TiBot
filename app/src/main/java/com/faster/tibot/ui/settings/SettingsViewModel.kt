@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val app = application
     private val repo = SettingsRepository(application)
     private val prootManager = ProotManager(application)
     private val mqtt = MqttManager.getInstance()
@@ -31,12 +32,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun stopContainer() {
         prootManager.stopProot()
-        application.stopService(Intent(application, TiBotForegroundService::class.java))
+        app.stopService(Intent(app, TiBotForegroundService::class.java))
     }
 
     fun restartContainer() {
         prootManager.stopProot()
-        application.startService(Intent(application, TiBotForegroundService::class.java))
+        app.startService(Intent(app, TiBotForegroundService::class.java))
     }
 
     fun isContainerRunning(): Boolean = prootManager.isRunning()
