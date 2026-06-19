@@ -2,8 +2,6 @@ import asyncio
 import json
 import logging
 import signal
-import sys
-from pathlib import Path
 
 import paho.mqtt.client as mqtt
 import yaml
@@ -20,11 +18,21 @@ _autoreply_rules: list[AutoReplyRule] = []
 _bot_app = None
 _mqtt_client = None
 _config: TibotConfig = None
+_lock = asyncio.Lock()
 
 
 def load_config(path: str = "config.yaml") -> TibotConfig:
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    try:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        logger.error(f"Config file not found: {path}")
+        raise
+    except yaml.YAMLError as e:
+        logger.error(f"Invalid YAML in config file {path}: {e}")
+        raise
+    if not data or "bot_token" not in data:
+        raise ValueError(f"Config file {path} is missing required 'bot_token' field")
     return TibotConfig(
         bot_token=data["bot_token"],
         admin_ids=data.get("admin_ids", []),
@@ -59,6 +67,13 @@ def _on_connect(client, _userdata, _flags, rc) -> None:
     })
 
 
+async def _safe_handle(topic: str, env: TibotEnvelope) -> None:
+    try:
+        await _handle_mqtt_command(topic, env)
+    except Exception as e:
+        logger.error(f"Error handling MQTT command on {topic}: {e}", exc_info=True)
+
+
 def _on_message(_client, _userdata, msg: mqtt.MQTTMessage) -> None:
     topic = msg.topic
     try:
@@ -66,7 +81,7 @@ def _on_message(_client, _userdata, msg: mqtt.MQTTMessage) -> None:
     except Exception as e:
         logger.warning(f"Invalid MQTT payload on {topic}: {e}")
         return
-    asyncio.ensure_future(_handle_mqtt_command(topic, env))
+    asyncio.ensure_future(_safe_handle(topic, env))
 
 
 async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
@@ -121,38 +136,39 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
             })
 
     elif sub.startswith("autoreply/"):
-        action = sub.split("/")[-1]
-        if action == "get":
-            _publish(_make_topic("autoreply", "list"), {
-                "rules": [r.__dict__ for r in _autoreply_rules],
-            })
-        elif action == "set":
-            rule = AutoReplyRule(**env.payload)
-            # Replace existing or append
-            for i, r in enumerate(_autoreply_rules):
-                if r.rule_id == rule.rule_id:
-                    _autoreply_rules[i] = rule
-                    break
-            else:
-                _autoreply_rules.append(rule)
-            _publish(_make_topic("autoreply", "list"), {
-                "rules": [r.__dict__ for r in _autoreply_rules],
-            })
-        elif action == "delete":
-            rule_id = env.payload.get("rule_id", "")
-            _autoreply_rules = [r for r in _autoreply_rules if r.rule_id != rule_id]
-            _publish(_make_topic("autoreply", "list"), {
-                "rules": [r.__dict__ for r in _autoreply_rules],
-            })
+        async with _lock:
+            action = sub.split("/")[-1]
+            if action == "get":
+                _publish(_make_topic("autoreply", "list"), {
+                    "rules": [r.__dict__ for r in _autoreply_rules],
+                })
+            elif action == "set":
+                rule = AutoReplyRule(**env.payload)
+                # Replace existing or append
+                for i, r in enumerate(_autoreply_rules):
+                    if r.rule_id == rule.rule_id:
+                        _autoreply_rules[i] = rule
+                        break
+                else:
+                    _autoreply_rules.append(rule)
+                _publish(_make_topic("autoreply", "list"), {
+                    "rules": [r.__dict__ for r in _autoreply_rules],
+                })
+            elif action == "delete":
+                rule_id = env.payload.get("rule_id", "")
+                _autoreply_rules = [r for r in _autoreply_rules if r.rule_id != rule_id]
+                _publish(_make_topic("autoreply", "list"), {
+                    "rules": [r.__dict__ for r in _autoreply_rules],
+                })
 
     elif sub.startswith("chat/"):
-        action = sub.split("/")[-1]
-        if action == "list":
+        rest = sub[len("chat/"):]
+        if rest == "list":
             _publish(_make_topic("chat", "list"), {
                 "chats": list(_chats.values()),
             })
-        elif action.startswith("history/"):
-            chat_id = int(action.split("/")[-1])
+        elif rest.startswith("history/"):
+            chat_id = int(rest.split("/")[-1])
             # history would come from persistent storage; for MVP return last 50
             _publish(_make_topic("chat", "history", str(chat_id)), {
                 "messages": [],
@@ -177,14 +193,15 @@ async def _on_telegram_message(msg: TelegramMessage) -> None:
     }
 
     # Check auto-reply first
-    for rule in _autoreply_rules:
-        if rule.matches(msg.text or ""):
-            if _bot_app:
-                await _bot_app.bot.send_message(
-                    chat_id=msg.chat_id, text=rule.reply,
-                    reply_to_message_id=msg.message_id,
-                )
-            return  # Auto-reply matched, don't forward to Android
+    async with _lock:
+        for rule in _autoreply_rules:
+            if rule.matches(msg.text or ""):
+                if _bot_app:
+                    await _bot_app.bot.send_message(
+                        chat_id=msg.chat_id, text=rule.reply,
+                        reply_to_message_id=msg.message_id,
+                    )
+                return  # Auto-reply matched, don't forward to Android
 
     # Forward to Android
     _publish(_make_topic("msg", "in", str(msg.chat_id)), msg.to_dict())

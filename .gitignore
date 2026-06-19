@@ -17,5 +17,12 @@ local.properties
 # Claude Code settings
 .claude/
 
+# Python bytecode
+*.pyc
+__pycache__/
+
 # Design docs & implementation plans
 docs/superpowers/
+
+# Claude Code worktrees & brainstorming
+.superpowers/
