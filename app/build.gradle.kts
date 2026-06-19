@@ -11,21 +11,38 @@ android {
         applicationId = "com.faster.tibot"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
 
         vectorDrawables {
             useSupportLibrary = true
         }
     }
 
+    signingConfigs {
+        val keystoreFile = file(rootProject.file("tibot.keystore"))
+        if (keystoreFile.exists()) {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = "fasterjike"
+                keyAlias = "fasterjike"
+                keyPassword = "fasterjike"
+            }
+        }
+    }
+
     buildTypes {
+        val signingConfig = signingConfigs.findByName("release")
         release {
+            if (signingConfig != null) signingConfig = signingConfig
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            if (signingConfig != null) signingConfig = signingConfig
         }
     }
     compileOptions {

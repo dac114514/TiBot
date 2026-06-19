@@ -24,5 +24,8 @@ __pycache__/
 # Design docs & implementation plans
 docs/superpowers/
 
+# Keystore
+*.keystore
+
 # Claude Code worktrees & brainstorming
 .superpowers/
