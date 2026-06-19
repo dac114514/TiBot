@@ -47,8 +47,15 @@ async def _ping_cmd(update: Update, _context: CallbackContext) -> None:
 async def start_bot(
     config: TibotConfig,
     message_callback,
+    on_ready=None,
 ) -> Application:
-    """Start PTB bot with polling. Returns the Application instance."""
+    """Start PTB bot with polling. Returns the Application instance.
+
+    Args:
+        config: Bot configuration.
+        message_callback: Async callback for incoming TelegramMessage.
+        on_ready: Optional sync callback invoked after initialize() succeeds.
+    """
     global _on_message
     _on_message = message_callback
 
@@ -64,6 +71,10 @@ async def start_bot(
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
+
+    if on_ready:
+        on_ready()
+
     logger.info("PTB bot started, polling...")
     return app
 

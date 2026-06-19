@@ -130,6 +130,12 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
                     chat_id=chat_id, document=f, caption=caption,
                 )
 
+    elif sub == "cmd/ping":
+        _publish("tibot/status", {
+            "bot_running": _bot_app is not None,
+            "reason": "pong",
+        })
+
     elif sub == "cmd/restart":
         logger.info("Restart command received")
         _publish(_make_topic("status", "offline"), {"reason": "restarting"})
@@ -229,6 +235,14 @@ async def _on_telegram_message(msg: TelegramMessage) -> None:
 # ---- Main entry point ----
 
 
+def _on_bot_ready() -> None:
+    """Callback invoked when the PTB bot has initialized and started polling."""
+    _publish("tibot/status", {
+        "bot_running": True,
+        "reason": "bot started",
+    })
+
+
 async def run_bridge(config: TibotConfig) -> None:
     global _mqtt_client, _bot_app, _config
     _config = config
@@ -240,8 +254,8 @@ async def run_bridge(config: TibotConfig) -> None:
     _mqtt_client.connect_async(config.mqtt_host, config.mqtt_port, 60)
     _mqtt_client.loop_start()
 
-    # Start PTB bot
-    _bot_app = await start_bot(config, _on_telegram_message)
+    # Start PTB bot (on_ready publishes bot_running:true for Android gate)
+    _bot_app = await start_bot(config, _on_telegram_message, on_ready=_on_bot_ready)
 
     # Wait for shutdown signal
     stop_event = asyncio.Event()
@@ -254,7 +268,11 @@ async def run_bridge(config: TibotConfig) -> None:
 
     await stop_event.wait()
 
-    # Cleanup
+    # LWT: announce bot going offline before cleanup
+    _publish("tibot/status", {
+        "bot_running": False,
+        "reason": "bot shutting down",
+    })
     await stop_bot(_bot_app)
     _mqtt_client.loop_stop()
     _mqtt_client.disconnect()
