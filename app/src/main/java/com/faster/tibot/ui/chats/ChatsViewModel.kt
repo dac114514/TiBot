@@ -6,9 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
 import com.faster.tibot.data.message.MessageStore
 import com.faster.tibot.data.telegram.TelegramBotClient
+import com.faster.tibot.data.telegram.TelegramMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -48,6 +52,8 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeChatId = MutableStateFlow<Long?>(null)
     val activeChatId = _activeChatId.asStateFlow()
 
+    private var messagesJob: Job? = null
+
     init {
         viewModelScope.launch {
             val token = settingsRepo.botToken.first()
@@ -71,21 +77,26 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectChat(chatId: Long) {
         _activeChatId.value = chatId
-        viewModelScope.launch {
-            try {
-                val msgs = messageStore.getMessages(chatId)
-                _messages.value = msgs.map { msg ->
-                    ChatMessage(
-                        id = "msg_${msg.messageId}",
-                        chatId = msg.chatId,
-                        text = msg.text,
-                        isOutgoing = false,
-                        senderName = msg.fromName,
-                        time = SimpleDateFormat("HH:mm", Locale.getDefault())
-                            .format(Date(msg.date * 1000)),
-                    )
-                }
-            } catch (_: Exception) {
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
+            messageStore.getMessages(chatId) // keep one-shot for now
+            // Use reactive approach: poll every 2s while chat is active
+            while (isActive) {
+                try {
+                    val msgs = messageStore.getMessages(chatId)
+                    _messages.value = msgs.map { msg ->
+                        ChatMessage(
+                            id = "msg_${msg.messageId}",
+                            chatId = msg.chatId,
+                            text = msg.text,
+                            isOutgoing = false,
+                            senderName = msg.fromName,
+                            time = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(Date(msg.date * 1000)),
+                        )
+                    }
+                } catch (_: Exception) {}
+                delay(2000)
             }
         }
     }
@@ -94,9 +105,17 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 botClient?.sendMessage(chatId, text)
-            } catch (_: Exception) {
-            }
-            // Optimistic local add regardless
+                // Persist outgoing message so it shows in chat
+                messageStore.saveMessage(TelegramMessage(
+                    messageId = -System.currentTimeMillis(), // temporary negative ID
+                    chatId = chatId,
+                    chatTitle = "", // will be filled by the Flow
+                    text = text,
+                    fromName = "我",
+                    date = System.currentTimeMillis() / 1000,
+                ))
+            } catch (_: Exception) {}
+            // Keep optimistic local add
             val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
             val newMsg = ChatMessage(
                 id = "local_${System.currentTimeMillis()}",
@@ -111,7 +130,11 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendFile(chatId: Long, filePath: String, caption: String = "") {
-        // TODO: Use TelegramBotClient to send via HTTP API
+        viewModelScope.launch {
+            try {
+                botClient?.sendDocument(chatId, filePath, caption)
+            } catch (_: Exception) {}
+        }
         val fileName = filePath.substringAfterLast("/")
         val displayText = if (caption.isNotBlank()) "[文件: $fileName] $caption" else "[文件: $fileName]"
         val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())

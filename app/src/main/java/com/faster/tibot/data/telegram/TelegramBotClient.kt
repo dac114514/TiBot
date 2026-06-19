@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
@@ -99,6 +100,22 @@ class TelegramBotClient(private val token: String) {
             }
         }
 
+    suspend fun sendDocument(chatId: Long, filePath: String, caption: String = "") = withContext(Dispatchers.IO) {
+        try {
+            val file = java.io.File(filePath)
+            val requestBody = okhttp3.MultipartBody.Builder()
+                .setType(okhttp3.MultipartBody.FORM)
+                .addFormDataPart("chat_id", chatId.toString())
+                .addFormDataPart("document", file.name,
+                    file.asRequestBody("application/octet-stream".toMediaType()))
+                .apply { if (caption.isNotBlank()) addFormDataPart("caption", caption) }
+                .build()
+            val req = Request.Builder().url("$baseUrl/sendDocument")
+                .post(requestBody).build()
+            client.newCall(req).execute().close()
+        } catch (_: Exception) {}
+    }
+
     private fun parseUpdate(json: JSONObject): TelegramUpdate {
         val updateId = json.getLong("update_id")
         val message = parseMessage(json.optJSONObject("message"))
@@ -116,7 +133,17 @@ class TelegramBotClient(private val token: String) {
                 ?: chat?.optString("first_name")
                 ?: chat?.optString("username")
                 ?: "",
-            text = json.optString("text", json.optString("caption", "")),
+            text = json.optString("text").takeIf { it.isNotBlank() }
+                ?: json.optString("caption").takeIf { it.isNotBlank() }
+                ?: when {
+                    json.has("photo") -> "[图片]"
+                    json.has("video") -> "[视频]"
+                    json.has("document") -> "[文件]"
+                    json.has("audio") -> "[音频]"
+                    json.has("voice") -> "[语音]"
+                    json.has("sticker") -> "[贴纸]"
+                    else -> ""
+                },
             fromName = from?.optString("first_name")
                 ?: from?.optString("username")
                 ?: "",
