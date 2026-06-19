@@ -237,10 +237,13 @@ async def _on_telegram_message(msg: TelegramMessage) -> None:
 
 def _on_bot_ready() -> None:
     """Callback invoked when the PTB bot has initialized and started polling."""
-    _publish("tibot/status", {
-        "bot_running": True,
-        "reason": "bot started",
-    })
+    try:
+        _publish("tibot/status", {
+            "bot_running": True,
+            "reason": "bot started",
+        })
+    except Exception:
+        logger.exception("Failed to publish bot-ready status")
 
 
 async def run_bridge(config: TibotConfig) -> None:

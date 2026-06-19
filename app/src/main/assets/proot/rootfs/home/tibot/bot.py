@@ -1,4 +1,5 @@
 import logging
+from typing import Optional, Callable
 
 from telegram import Update
 from telegram.ext import (
@@ -47,14 +48,14 @@ async def _ping_cmd(update: Update, _context: CallbackContext) -> None:
 async def start_bot(
     config: TibotConfig,
     message_callback,
-    on_ready=None,
+    on_ready: Optional[Callable[[], None]] = None,
 ) -> Application:
     """Start PTB bot with polling. Returns the Application instance.
 
     Args:
         config: Bot configuration.
         message_callback: Async callback for incoming TelegramMessage.
-        on_ready: Optional sync callback invoked after initialize() succeeds.
+        on_ready: Optional sync callback invoked after initialize+start+polling succeed.
     """
     global _on_message
     _on_message = message_callback
