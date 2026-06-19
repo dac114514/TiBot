@@ -446,21 +446,24 @@ class RootfsDownloadManager(private val context: Context) {
             }
         }
 
-        // Copy proot loader binaries (required for executing guest ELF programs)
-        val loaderDir = File(rootfsDir, "usr/libexec/proot")
-        loaderDir.mkdirs()
+        // Copy proot loader binaries to executable location
+        // (required because app data is noexec on Android 10+ — W^X enforcement)
+        val execLoaderDir = java.io.File("/data/local/tmp/com.faster.tibot")
+        execLoaderDir.mkdirs()
+
         for (loaderName in listOf("loader", "loader32")) {
             try {
+                // Copy from assets to executable host location
+                val execFile = java.io.File(execLoaderDir, loaderName)
                 context.assets.open("proot/$loaderName").use { input ->
-                    java.io.FileOutputStream(File(loaderDir, loaderName)).use { output ->
+                    java.io.FileOutputStream(execFile).use { output ->
                         input.copyTo(output)
                     }
                 }
-                val loaderFile = File(loaderDir, loaderName)
-                loaderFile.setExecutable(true)
-                Log.d("RootfsDownloadMgr", "copyAssets: copied $loaderName (${loaderFile.length()} bytes)")
+                execFile.setExecutable(true)
+                Log.d("RootfsDownloadMgr", "copyAssets: copied $loaderName to exec location (${execFile.length()} bytes)")
             } catch (e: Exception) {
-                Log.e("RootfsDownloadMgr", "copyAssets: $loaderName copy FAILED: ${e.message}", e)
+                Log.e("RootfsDownloadMgr", "copyAssets: $loaderName copy to exec location FAILED: ${e.message}", e)
                 return@withContext false
             }
         }
