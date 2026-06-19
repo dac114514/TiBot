@@ -81,12 +81,6 @@ fun TerminalScreen() {
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
                 textStyle = TextStyle(color = Color(0xFFe8f0fe), fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
                     if (input.isNotBlank()) {
