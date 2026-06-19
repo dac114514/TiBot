@@ -11,8 +11,8 @@ android {
         applicationId = "com.faster.tibot"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = "1.0.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -32,9 +32,9 @@ android {
     }
 
     buildTypes {
-        val signingConfig = signingConfigs.findByName("release")
+        val releaseSigning = signingConfigs.findByName("release")
         release {
-            if (signingConfig != null) signingConfig = signingConfig
+            if (releaseSigning != null) this.signingConfig = releaseSigning
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -42,7 +42,7 @@ android {
             )
         }
         debug {
-            if (signingConfig != null) signingConfig = signingConfig
+            if (releaseSigning != null) this.signingConfig = releaseSigning
         }
     }
     compileOptions {
