@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.settings
+package com.faster.tibot.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -30,10 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.androidstarter.data.local.ThemeMode
-import com.example.androidstarter.ui.components.ExpandableSettingsCard
-import com.example.androidstarter.ui.components.SettingsCard
-import com.example.androidstarter.BuildConfig
+import com.faster.tibot.data.local.ThemeMode
+import com.faster.tibot.ui.components.ExpandableSettingsCard
+import com.faster.tibot.ui.components.SettingsCard
+import com.faster.tibot.BuildConfig
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
@@ -98,13 +98,13 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
             Column(modifier = Modifier.padding(top = 16.dp, bottom = 16.dp)) {
                 // 应用信息
                 Text(
-                    text = "Android Starter",
+                    text = "TiBot",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "基于 Jetpack Compose + Material Design 3 的 Android 项目初始模板，提供常用组件展示和开箱即用的项目结构。",
+                    text = "基于 Jetpack Compose + Material Design 3 的 Android 项目模板，提供常用组件展示和开箱即用的项目结构。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
@@ -115,7 +115,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
                 InfoRow("开发者", "dac114514")
                 Spacer(Modifier.height(4.dp))
-                InfoRow("项目地址", "github.com/dac114514/android-starter")
+                InfoRow("项目地址", "github.com/dac114514/tibot")
                 Spacer(Modifier.height(4.dp))
                 InfoRow("包名", BuildConfig.APPLICATION_ID)
                 Spacer(Modifier.height(4.dp))

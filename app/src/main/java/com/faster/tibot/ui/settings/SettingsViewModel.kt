@@ -1,10 +1,10 @@
-package com.example.androidstarter.ui.settings
+package com.faster.tibot.ui.settings
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.androidstarter.data.local.PreferencesRepository
-import com.example.androidstarter.data.local.ThemeMode
+import com.faster.tibot.data.local.PreferencesRepository
+import com.faster.tibot.data.local.ThemeMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn

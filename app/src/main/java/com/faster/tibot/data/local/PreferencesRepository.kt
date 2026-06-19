@@ -1,4 +1,4 @@
-package com.example.androidstarter.data.local
+package com.faster.tibot.data.local
 
 import android.content.Context
 import androidx.datastore.core.DataStore

@@ -1,4 +1,4 @@
-package com.example.androidstarter
+package com.faster.tibot
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -31,11 +31,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.androidstarter.data.local.ThemeMode
-import com.example.androidstarter.ui.navigation.AppNavHost
-import com.example.androidstarter.ui.navigation.Routes
-import com.example.androidstarter.ui.settings.SettingsViewModel
-import com.example.androidstarter.ui.theme.AndroidStarterTheme
+import com.faster.tibot.data.local.ThemeMode
+import com.faster.tibot.ui.navigation.AppNavHost
+import com.faster.tibot.ui.navigation.Routes
+import com.faster.tibot.ui.settings.SettingsViewModel
+import com.faster.tibot.ui.theme.TiBotTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,7 +57,7 @@ private fun AppRoot(settingsVm: SettingsViewModel = viewModel()) {
         ThemeMode.DARK -> true
     }
 
-    AndroidStarterTheme(darkTheme = darkTheme) {
+    TiBotTheme(darkTheme = darkTheme) {
         val navController = rememberNavController()
         val backStack by navController.currentBackStackEntryAsState()
         val currentRoute = backStack?.destination?.route

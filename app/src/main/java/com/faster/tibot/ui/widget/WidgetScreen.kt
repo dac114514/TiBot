@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.widget
+package com.faster.tibot.ui.widget
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,8 +49,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.androidstarter.ui.components.ScreenHeader
-import com.example.androidstarter.ui.components.SettingsCard
+import com.faster.tibot.ui.components.ScreenHeader
+import com.faster.tibot.ui.components.SettingsCard
 
 @Composable
 fun WidgetScreen() {

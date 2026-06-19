@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.navigation
+package com.faster.tibot.ui.navigation
 
 object Routes {
     const val WIDGET = "widget"

@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.theme
+package com.faster.tibot.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -61,7 +61,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun AndroidStarterTheme(
+fun TiBotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
@@ -77,8 +77,8 @@ fun AndroidStarterTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = AppTypography,
-        shapes = AppShapes,
+        typography = TgTypography,
+        shapes = TgShapes,
         content = content,
     )
 }

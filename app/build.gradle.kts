@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.androidstarter"
+    namespace = "com.faster.tibot"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.androidstarter"
+        applicationId = "com.faster.tibot"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

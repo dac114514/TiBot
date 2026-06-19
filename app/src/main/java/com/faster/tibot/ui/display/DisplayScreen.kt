@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.display
+package com.faster.tibot.ui.display
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -37,8 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.example.androidstarter.ui.components.ScreenHeader
-import com.example.androidstarter.ui.components.SettingsCard
+import com.faster.tibot.ui.components.ScreenHeader
+import com.faster.tibot.ui.components.SettingsCard
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

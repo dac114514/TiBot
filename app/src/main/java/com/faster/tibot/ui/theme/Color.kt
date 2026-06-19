@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.theme
+package com.faster.tibot.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -1,4 +1,4 @@
-package com.example.androidstarter.ui.components
+package com.faster.tibot.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState

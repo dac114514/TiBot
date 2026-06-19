@@ -1,4 +1,4 @@
-package com.example.androidstarter.data.local
+package com.faster.tibot.data.local
 
 enum class ThemeMode {
     SYSTEM,
