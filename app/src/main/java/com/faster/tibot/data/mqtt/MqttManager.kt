@@ -1,6 +1,7 @@
 package com.faster.tibot.data.mqtt
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -57,6 +58,7 @@ class MqttManager private constructor() {
                 }
                 _connectionState.trySend(true)
             } catch (e: Exception) {
+                Log.e(TAG, "connect failed: ${e.message}", e)
                 _connectionState.trySend(false)
             }
         }
@@ -65,19 +67,25 @@ class MqttManager private constructor() {
     fun subscribe(topic: String, qos: Int = 1) {
         try {
             client?.subscribe(topic, qos)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e(TAG, "subscribe($topic) failed: ${e.message}", e)
+        }
     }
 
     fun unsubscribe(topic: String) {
         try {
             client?.unsubscribe(topic)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "unsubscribe($topic) failed: ${e.message}")
+        }
     }
 
     fun publish(topic: String, payload: String, qos: Int = 1) {
         try {
             client?.publish(topic, MqttMessage(payload.toByteArray()).apply { this.qos = qos })
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "publish($topic) failed: ${e.message}")
+        }
     }
 
     fun disconnect() {

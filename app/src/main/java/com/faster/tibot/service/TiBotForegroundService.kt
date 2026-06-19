@@ -156,7 +156,9 @@ class TiBotForegroundService : Service() {
                             deferred.complete(true)
                             cancel()
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        Log.w("TiBotService", "Bad JSON in tibot/status: ${e.message}")
+                    }
                 }
             }
         }
@@ -193,6 +195,7 @@ class TiBotForegroundService : Service() {
                 }
             } catch (e: Exception) {
                 Log.w("TiBotService", "monitorProcessExit error: ${e.message}")
+                BotConnectionStore.setStatus(ConnectionStatus.CRASHED, "process monitor error")
             }
         }
     }

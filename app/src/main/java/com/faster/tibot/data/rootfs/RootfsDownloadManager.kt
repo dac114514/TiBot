@@ -107,6 +107,7 @@ class RootfsDownloadManager(private val context: Context) {
                 .setAllowedOverRoaming(true)
         } catch (e: Exception) {
             log("URL 解析失败: ${e.message}")
+            Log.e("RootfsDownloadMgr", "URL 无效: ${mirror.name}")
             emit(DownloadProgress(
                 state = DownloadState.ERROR,
                 error = "URL 无效: ${mirror.name}",
@@ -149,6 +150,7 @@ class RootfsDownloadManager(private val context: Context) {
                                         else -> "错误码 $reason"
                                     }
                                     log("下载失败: $reasonText")
+                                    Log.e("RootfsDownloadMgr", "Download failed: ${mirror.name}: $reasonText")
                                     emit(
                                         DownloadProgress(
                                             state = DownloadState.ERROR,
@@ -189,6 +191,7 @@ class RootfsDownloadManager(private val context: Context) {
                                         done = true
                                         log("下载停滞: 30s 无数据")
                                         dm.remove(downloadId)
+                                        Log.e("RootfsDownloadMgr", "${mirror.name}: 下载停滞 (30s 无数据)")
                                         emit(
                                             DownloadProgress(
                                                 state = DownloadState.ERROR,
@@ -210,6 +213,7 @@ class RootfsDownloadManager(private val context: Context) {
             dm.remove(downloadId)
             actualFile.delete()
             log("下载超时 (${HARD_TIMEOUT_MS / 1000}s)")
+            Log.e("RootfsDownloadMgr", "${mirror.name}: 下载超时 (${HARD_TIMEOUT_MS / 1000}s)")
             emit(
                 DownloadProgress(
                     state = DownloadState.ERROR,
@@ -225,6 +229,7 @@ class RootfsDownloadManager(private val context: Context) {
         if (fileSize != EXPECTED_SIZE) {
             actualFile.delete()
             log("文件大小不匹配: 预期 ${EXPECTED_SIZE / 1024 / 1024}MB, 实际 ${fileSize / 1024 / 1024}MB")
+            Log.e("RootfsDownloadMgr", "${mirror.name}: 文件大小不匹配 (预期=${EXPECTED_SIZE}, 实际=$fileSize)")
             emit(
                 DownloadProgress(
                     state = DownloadState.ERROR,
@@ -238,6 +243,7 @@ class RootfsDownloadManager(private val context: Context) {
         if (!verifySha256(actualFile, EXPECTED_SHA256)) {
             actualFile.delete()
             log("SHA256 校验失败")
+            Log.e("RootfsDownloadMgr", "${mirror.name}: SHA256 校验失败")
             emit(
                 DownloadProgress(
                     state = DownloadState.ERROR,
@@ -292,6 +298,7 @@ class RootfsDownloadManager(private val context: Context) {
             val tarStream = decompressStream(tarFile)
             if (tarStream == null) {
                 log("解压失败: 无法识别文件格式")
+                Log.e("RootfsDownloadMgr", "extractTar: 无法识别文件格式: ${tarFile.name}")
                 emit(DownloadProgress(state = DownloadState.ERROR, error = "无法识别文件格式 (需要 .tar.gz 或 .tar.xz)", logs = logs.toList()))
                 return@flow
             }
@@ -357,6 +364,7 @@ class RootfsDownloadManager(private val context: Context) {
                 }
             } catch (e: Exception) {
                 log("解压失败: ${e.message}")
+                Log.e("RootfsDownloadMgr", "extractTar exception: ${e.message}", e)
                 emit(DownloadProgress(
                     state = DownloadState.ERROR,
                     error = "解压失败: ${e.message}",
@@ -391,7 +399,7 @@ class RootfsDownloadManager(private val context: Context) {
      * Copy proot binary and Python scripts from APK assets into the extracted rootfs.
      * Called after extraction completes, before verification.
      */
-    suspend fun copyAssets(rootfsDir: File) = withContext(Dispatchers.IO) {
+    suspend fun copyAssets(rootfsDir: File): Boolean = withContext(Dispatchers.IO) {
         Log.d("RootfsDownloadMgr", "copyAssets: starting, rootfsDir=${rootfsDir.absolutePath}")
 
         // Copy proot binary
@@ -407,15 +415,16 @@ class RootfsDownloadManager(private val context: Context) {
             Log.i("RootfsDownloadMgr", "copyAssets: proot copied (${prootDest.length()} bytes, executable=$ok)")
         } catch (e: Exception) {
             Log.e("RootfsDownloadMgr", "copyAssets: proot copy FAILED: ${e.message}", e)
+            return@withContext false
         }
 
         // Copy Python scripts from assets to rootfs/home/tibot/
         val tibotDir = File(rootfsDir, "home/tibot")
         tibotDir.mkdirs()
         val scriptDir = "proot/rootfs/home/tibot"
+        var copied = 0
         try {
             val names = context.assets.list(scriptDir) ?: emptyArray()
-            var copied = 0
             names.forEach { name ->
                 if (name.contains("/")) return@forEach
                 val destFile = File(tibotDir, name)
@@ -430,6 +439,12 @@ class RootfsDownloadManager(private val context: Context) {
             Log.i("RootfsDownloadMgr", "copyAssets: copied $copied scripts to home/tibot/")
         } catch (e: Exception) {
             Log.e("RootfsDownloadMgr", "copyAssets: script copy FAILED: ${e.message}", e)
+            return@withContext false
         }
+        if (copied == 0) {
+            Log.e("RootfsDownloadMgr", "copyAssets: 0 scripts copied")
+            return@withContext false
+        }
+        true
     }
 }

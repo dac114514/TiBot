@@ -133,7 +133,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun startDownload() {
-        val mirror = mirrors.find { it.id == _state.value.selectedMirrorId } ?: return
+        val mirror = mirrors.find { it.id == _state.value.selectedMirrorId }
+        if (mirror == null) {
+            _state.value = _state.value.copy(phase = Phase.ERROR, phaseSubtitle = "invalid mirror", error = "selected mirror not found")
+            return
+        }
         viewModelScope.launch {
             val logs = _state.value.logs.toMutableList()
             logs += LogLine("$ wget ${mirror.url}", LogLevel.INFO)
@@ -198,7 +202,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                     val updatedLogs = _state.value.logs.toMutableList()
                     updatedLogs += LogLine("v extraction complete", LogLevel.SUCCESS)
                     _state.value = _state.value.copy(logs = updatedLogs, phaseSubtitle = "copying assets...")
-                    rootfsDownloadMgr.copyAssets(rootfsDir)
+                    if (!rootfsDownloadMgr.copyAssets(rootfsDir)) {
+                        updatedLogs += LogLine("x asset copy failed", LogLevel.ERROR)
+                        _state.value = _state.value.copy(phase = Phase.ERROR, phaseSubtitle = "asset copy failed", error = "failed to copy proot or scripts", logs = updatedLogs)
+                        return@collect
+                    }
                     verifyRootfs()
                     return@collect
                 }
