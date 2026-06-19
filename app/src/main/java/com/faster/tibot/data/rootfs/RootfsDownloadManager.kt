@@ -207,7 +207,8 @@ class RootfsDownloadManager(private val context: Context) {
         if (success == null) {
             // Timeout
             dm.remove(downloadId)
-            destFile.delete()
+            val actualFile = File(context.getExternalFilesDir(null), "rootfs.tar.gz")
+            actualFile.delete()
             log("下载超时 (${HARD_TIMEOUT_MS / 1000}s)")
             emit(
                 DownloadProgress(
