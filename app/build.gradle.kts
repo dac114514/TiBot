@@ -74,6 +74,5 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.paho.mqtt.service)
     implementation(libs.paho.mqtt.client)
-    implementation("com.github.SmartToolFactory:Compose-Bubble:1.2.0")
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -32,22 +32,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.faster.tibot.ui.theme.TgDarkSuccess
 
 @Composable
 fun ChatListScreen(
     onChatClick: (Long) -> Unit = {},
-    vm: ChatsViewModel = viewModel(),
 ) {
+    val vm: ChatsViewModel = viewModel(viewModelStoreOwner = LocalContext.current as ComponentActivity)
     val chats by vm.chats.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
@@ -153,7 +154,7 @@ private fun BotStatusBar() {
             modifier = Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(TgDarkSuccess),
+                .background(MaterialTheme.colorScheme.primary),
         )
         Spacer(Modifier.width(8.dp))
         Text(

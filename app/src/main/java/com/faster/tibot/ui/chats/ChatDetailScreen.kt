@@ -35,11 +35,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,8 +51,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun ChatDetailScreen(
     chatId: Long,
     onBack: () -> Unit,
-    vm: ChatsViewModel = viewModel(),
 ) {
+    val vm: ChatsViewModel = viewModel(viewModelStoreOwner = LocalContext.current as ComponentActivity)
     val messages by vm.messages.collectAsState()
     val chats by vm.chats.collectAsState()
     val chat = remember(chats, chatId) {

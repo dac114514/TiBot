@@ -17,10 +17,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.faster.tibot.data.local.SettingsRepository
 import com.faster.tibot.ui.navigation.AppNavHost
 import com.faster.tibot.ui.navigation.Routes
 import com.faster.tibot.ui.theme.TiBotTheme
@@ -38,6 +40,10 @@ private fun AppRoot() {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
+    val context = LocalContext.current
+    val settingsRepo = remember { SettingsRepository(context.applicationContext) }
+    val isConfigured by settingsRepo.isConfigured.collectAsState(initial = false)
 
     val tabs = listOf(
         TabItem(Routes.CHATS, "消息", Icons.Outlined.Chat, Icons.Filled.Chat),
@@ -83,7 +89,7 @@ private fun AppRoot() {
         AppNavHost(
             navController = navController,
             modifier = Modifier.padding(innerPadding),
-            isConfigured = false, // TODO: check DataStore
+            isConfigured = isConfigured,
         )
     }
 }

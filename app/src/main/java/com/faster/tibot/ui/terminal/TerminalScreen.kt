@@ -16,7 +16,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.faster.tibot.ui.theme.*
 
 @Composable
 fun TerminalScreen() {
@@ -34,7 +33,7 @@ fun TerminalScreen() {
     var input by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0a0f16))) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Title bar
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -42,7 +41,7 @@ fun TerminalScreen() {
         ) {
             Text("终端", color = Color.White, style = MaterialTheme.typography.titleMedium)
             TextButton(onClick = { history = emptyList() }) {
-                Text("清屏", color = TgDarkAccentBlue, fontSize = 13.sp)
+                Text("清屏", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
             }
         }
 
@@ -60,8 +59,8 @@ fun TerminalScreen() {
                 Text(
                     text = line,
                     color = when {
-                        isPrompt -> TgDarkSuccess
-                        isComment -> TgDarkSecondaryText
+                        isPrompt -> MaterialTheme.colorScheme.primary
+                        isComment -> MaterialTheme.colorScheme.onSurfaceVariant
                         else -> Color(0xFFe8f0fe)
                     },
                     fontFamily = FontFamily.Monospace,
@@ -73,10 +72,10 @@ fun TerminalScreen() {
 
         // Input line
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp).background(Color(0xFF0a0f16)),
+            modifier = Modifier.fillMaxWidth().padding(12.dp).background(MaterialTheme.colorScheme.background),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("$ ", color = TgDarkSuccess, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+            Text("$ ", color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
             TextField(
                 value = input,
                 onValueChange = { input = it },
@@ -96,7 +95,7 @@ fun TerminalScreen() {
                         input = ""
                     }
                 }),
-                placeholder = { Text("输入命令...", color = TgDarkSecondaryText, fontFamily = FontFamily.Monospace) },
+                placeholder = { Text("输入命令...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace) },
                 singleLine = true,
             )
         }

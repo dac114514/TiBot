@@ -48,7 +48,7 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     private val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     init {
-        mqtt.connect()
+        // MQTT connection is managed by TiBotForegroundService
 
         // Listen for incoming MQTT messages
         viewModelScope.launch {

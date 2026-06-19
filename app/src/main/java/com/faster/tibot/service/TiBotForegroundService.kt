@@ -4,7 +4,7 @@ import android.app.*
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.faster.tibot.R
+import com.faster.tibot.data.mqtt.MqttManager
 
 class TiBotForegroundService : Service() {
 
@@ -31,6 +31,11 @@ class TiBotForegroundService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        MqttManager.getInstance(applicationContext).disconnect()
+        super.onDestroy()
+    }
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(

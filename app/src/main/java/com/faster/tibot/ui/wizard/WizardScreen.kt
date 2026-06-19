@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.faster.tibot.ui.theme.*
 
 @Composable
 fun WizardScreen(
@@ -46,9 +45,9 @@ fun WizardScreen(
                 (0..2).forEach { i ->
                     val color by animateColorAsState(
                         targetValue = when {
-                            i < state.currentStep -> TgDarkSuccess
-                            i == state.currentStep -> TgDarkAccentBlue
-                            else -> TgDarkDivider
+                            i < state.currentStep -> MaterialTheme.colorScheme.primary
+                            i == state.currentStep -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.outlineVariant
                         },
                         label = "dotColor",
                     )
@@ -108,7 +107,7 @@ private fun WelcomeStep(onNext: () -> Unit) {
         Surface(
             modifier = Modifier.size(100.dp),
             shape = RoundedCornerShape(24.dp),
-            color = TgDarkOutgoingBubble,
+            color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text("🤖", fontSize = 48.sp)
@@ -120,12 +119,12 @@ private fun WelcomeStep(onNext: () -> Unit) {
         Text(
             text = "TiBot",
             style = MaterialTheme.typography.displayMedium,
-            color = TgDarkPrimaryText,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
             text = "Telegram Bot 管理工具",
             style = MaterialTheme.typography.bodyLarge,
-            color = TgDarkSecondaryText,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(36.dp))
@@ -147,14 +146,14 @@ private fun WelcomeStep(onNext: () -> Unit) {
                 Icon(
                     Icons.Filled.CheckCircle,
                     contentDescription = null,
-                    tint = TgDarkSuccess,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
                     text,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TgDarkPrimaryText,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
         }
@@ -168,7 +167,7 @@ private fun WelcomeStep(onNext: () -> Unit) {
                 .padding(horizontal = 32.dp)
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = TgDarkAccentBlue,
+                containerColor = MaterialTheme.colorScheme.primary,
             ),
             shape = RoundedCornerShape(12.dp),
         ) {
@@ -202,13 +201,13 @@ private fun TokenStep(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     "返回",
-                    tint = TgDarkSecondaryText,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
                 "设置 Bot Token",
                 style = MaterialTheme.typography.titleLarge,
-                color = TgDarkPrimaryText,
+                color = MaterialTheme.colorScheme.onBackground,
             )
         }
 
@@ -220,7 +219,7 @@ private fun TokenStep(
             Text(
                 "请输入从 @BotFather 获取的 Bot Token",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TgDarkSecondaryText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(Modifier.height(16.dp))
@@ -236,19 +235,19 @@ private fun TokenStep(
                 supportingText = if (token.isNotEmpty() && !tokenValid) {
                     { Text("Token 格式不正确，应包含 \":\"且长度大于20") }
                 } else if (tokenValid) {
-                    { Text("Token 格式有效", color = TgDarkSuccess) }
+                    { Text("Token 格式有效", color = MaterialTheme.colorScheme.primary) }
                 } else null,
                 trailingIcon = {
                     when {
-                        tokenValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = TgDarkSuccess)
-                        token.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = TgDarkDanger)
+                        tokenValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = MaterialTheme.colorScheme.primary)
+                        token.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = MaterialTheme.colorScheme.error)
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = TgDarkAccentBlue,
-                    unfocusedBorderColor = TgDarkDivider,
-                    cursorColor = TgDarkAccentBlue,
-                    focusedLabelColor = TgDarkAccentBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
                 ),
                 shape = RoundedCornerShape(12.dp),
             )
@@ -259,13 +258,13 @@ private fun TokenStep(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDarkSurface),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Row(modifier = Modifier.padding(16.dp)) {
                     Icon(
                         Icons.Filled.Info,
                         null,
-                        tint = TgDarkAccentBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.width(12.dp))
@@ -273,7 +272,7 @@ private fun TokenStep(
                         Text(
                             "@BotFather 获取指引",
                             style = MaterialTheme.typography.titleSmall,
-                            color = TgDarkPrimaryText,
+                            color = MaterialTheme.colorScheme.onBackground,
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -281,7 +280,7 @@ private fun TokenStep(
                                 "2. 发送 /newbot 创建 Bot\n" +
                                 "3. 复制获取到的 API Token",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TgDarkSecondaryText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -296,8 +295,8 @@ private fun TokenStep(
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = TgDarkAccentBlue,
-                    disabledContainerColor = TgDarkDivider,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
                 ),
                 shape = RoundedCornerShape(12.dp),
             ) {
@@ -331,13 +330,13 @@ private fun AdminStep(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     "返回",
-                    tint = TgDarkSecondaryText,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
                 "设置管理员",
                 style = MaterialTheme.typography.titleLarge,
-                color = TgDarkPrimaryText,
+                color = MaterialTheme.colorScheme.onBackground,
             )
         }
 
@@ -349,7 +348,7 @@ private fun AdminStep(
             Text(
                 "请输入你的 Telegram User ID，用于接收 Bot 通知",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TgDarkSecondaryText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(Modifier.height(16.dp))
@@ -365,19 +364,19 @@ private fun AdminStep(
                 supportingText = if (adminId.isNotEmpty() && !adminIdValid) {
                     { Text("请输入有效的数字 User ID") }
                 } else if (adminIdValid) {
-                    { Text("User ID 格式有效", color = TgDarkSuccess) }
+                    { Text("User ID 格式有效", color = MaterialTheme.colorScheme.primary) }
                 } else null,
                 trailingIcon = {
                     when {
-                        adminIdValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = TgDarkSuccess)
-                        adminId.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = TgDarkDanger)
+                        adminIdValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = MaterialTheme.colorScheme.primary)
+                        adminId.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = MaterialTheme.colorScheme.error)
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = TgDarkAccentBlue,
-                    unfocusedBorderColor = TgDarkDivider,
-                    cursorColor = TgDarkAccentBlue,
-                    focusedLabelColor = TgDarkAccentBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
                 ),
                 shape = RoundedCornerShape(12.dp),
             )
@@ -388,13 +387,13 @@ private fun AdminStep(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDarkSurface),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Row(modifier = Modifier.padding(16.dp)) {
                     Icon(
                         Icons.Filled.Info,
                         null,
-                        tint = TgDarkAccentBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.width(12.dp))
@@ -402,7 +401,7 @@ private fun AdminStep(
                         Text(
                             "@userinfobot 获取指引",
                             style = MaterialTheme.typography.titleSmall,
-                            color = TgDarkPrimaryText,
+                            color = MaterialTheme.colorScheme.onBackground,
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -410,7 +409,7 @@ private fun AdminStep(
                                 "2. 发送任意消息给该 Bot\n" +
                                 "3. 复制返回的 Id 字段内容",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TgDarkSecondaryText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -425,8 +424,8 @@ private fun AdminStep(
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = TgDarkAccentBlue,
-                    disabledContainerColor = TgDarkDivider,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
                 ),
                 shape = RoundedCornerShape(12.dp),
             ) {
@@ -462,7 +461,7 @@ private fun DeployProgressStep(
         // Spinning indicator at top
         if (!allDone) {
             CircularProgressIndicator(
-                color = TgDarkAccentBlue,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(48.dp),
                 strokeWidth = 3.dp,
             )
@@ -471,14 +470,14 @@ private fun DeployProgressStep(
             Icon(
                 Icons.Filled.CheckCircle,
                 null,
-                tint = TgDarkSuccess,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(48.dp),
             )
             Spacer(Modifier.height(16.dp))
             Text(
                 "部署完成",
                 style = MaterialTheme.typography.titleLarge,
-                color = TgDarkPrimaryText,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -486,7 +485,7 @@ private fun DeployProgressStep(
         Text(
             if (allDone) "正在跳转..." else "正在部署运行环境，请稍候",
             style = MaterialTheme.typography.bodyMedium,
-            color = TgDarkSecondaryText,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(32.dp))
@@ -506,24 +505,24 @@ private fun DeployStepRow(step: DeployStep) {
             DeployStatus.PENDING -> Icon(
                 Icons.Filled.HourglassTop,
                 null,
-                tint = TgDarkSecondaryText,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),
             )
             DeployStatus.IN_PROGRESS -> CircularProgressIndicator(
-                color = TgDarkAccentBlue,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
             )
             DeployStatus.DONE -> Icon(
                 Icons.Filled.CheckCircle,
                 null,
-                tint = TgDarkSuccess,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
             )
             DeployStatus.ERROR -> Icon(
                 Icons.Filled.Error,
                 null,
-                tint = TgDarkDanger,
+                tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -540,7 +539,7 @@ private fun DeployStepRow(step: DeployStep) {
         Text(
             step.label,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (step.status == DeployStatus.PENDING) TgDarkSecondaryText else TgDarkPrimaryText,
+            color = if (step.status == DeployStatus.PENDING) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground,
             fontWeight = if (step.status == DeployStatus.IN_PROGRESS) FontWeight.Bold else FontWeight.Normal,
         )
     }
