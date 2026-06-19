@@ -26,7 +26,7 @@ async def _handle_message(update: Update, _context: CallbackContext) -> None:
 
 async def _start_cmd(update: Update, _context: CallbackContext) -> None:
     await update.message.reply_text(
-        "TiBot is online!\n\n"
+        "🤖 TiBot is online!\n\n"
         "Commands:\n"
         "/start - Show this message\n"
         "/help - Get help\n"
@@ -42,7 +42,7 @@ async def _help_cmd(update: Update, _context: CallbackContext) -> None:
 
 
 async def _ping_cmd(update: Update, _context: CallbackContext) -> None:
-    await update.message.reply_text("pong!")
+    await update.message.reply_text("pong! 🏓")
 
 
 async def start_bot(
