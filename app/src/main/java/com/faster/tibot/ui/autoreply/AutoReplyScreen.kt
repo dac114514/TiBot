@@ -513,7 +513,7 @@ private fun EmptyState(hasSearch: Boolean) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .weight(1f),
+            .fillMaxHeight(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
