@@ -42,7 +42,14 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             try {
-                _chats.value = messageStore.getAllChats()
+                _chats.value = messageStore.getAllChats().map { cs ->
+                    ChatSummary(
+                        chatId = cs.chatId,
+                        title = cs.chatTitle,
+                        lastMessage = cs.lastMessage,
+                        avatarLetter = cs.chatTitle.firstOrNull() ?: '?',
+                    )
+                }
             } catch (_: Exception) {
                 // MessageStore not yet wired (Task 2)
             }
@@ -106,7 +113,14 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshChats() {
         viewModelScope.launch {
             try {
-                _chats.value = messageStore.getAllChats()
+                _chats.value = messageStore.getAllChats().map { cs ->
+                    ChatSummary(
+                        chatId = cs.chatId,
+                        title = cs.chatTitle,
+                        lastMessage = cs.lastMessage,
+                        avatarLetter = cs.chatTitle.firstOrNull() ?: '?',
+                    )
+                }
             } catch (_: Exception) {
                 // MessageStore not yet wired
             }
