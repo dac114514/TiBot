@@ -10,6 +10,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
+data class BotUser(val id: Long, val firstName: String, val userName: String?)
+
 class TelegramBotClient(private val token: String) {
     private val baseUrl = "https://api.telegram.org/bot$token"
     private val client = OkHttpClient.Builder()
@@ -27,6 +29,23 @@ class TelegramBotClient(private val token: String) {
             }
         } catch (e: Exception) {
             false
+        }
+    }
+
+    suspend fun getMe(): BotUser? = withContext(Dispatchers.IO) {
+        try {
+            val req = Request.Builder().url("$baseUrl/getMe").get().build()
+            val resp = client.newCall(req).execute()
+            val json = JSONObject(resp.body()!!.string())
+            if (!json.getBoolean("ok")) return@withContext null
+            val user = json.getJSONObject("result")
+            BotUser(
+                id = user.optLong("id"),
+                firstName = user.optString("first_name", ""),
+                userName = user.optString("username"),
+            )
+        } catch (_: Exception) {
+            null
         }
     }
 
