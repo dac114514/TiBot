@@ -97,6 +97,13 @@ class ProotManager private constructor(private val context: Context) {
 
         val pb = ProcessBuilder(cmd)
         pb.directory(rootfsDir)
+        // Create temp directory for proot (overrides hardcoded Termux path)
+        val prootTmpDir = File(filesDir, "tmp")
+        prootTmpDir.mkdirs()
+        pb.environment()["PROOT_TMP_DIR"] = prootTmpDir.absolutePath
+        pb.environment()["PROOT_NO_SECCOMP"] = "1"
+        pb.environment()["PROOT_F2FS_WORKAROUND"] = "1"
+        pb.environment()["TMPDIR"] = prootTmpDir.absolutePath
         pb.environment()["HOME"] = "/home/tibot"
         pb.environment()["TERM"] = "xterm-256color"
         pb.environment()["LD_LIBRARY_PATH"] = File(filesDir, "rootfs/usr/lib").absolutePath
