@@ -46,5 +46,16 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    suspend fun saveTokenOnly(token: String, adminId: Long) {
+        context.dataStore.edit {
+            it[Keys.BOT_TOKEN] = token
+            it[Keys.ADMIN_ID] = adminId
+        }
+    }
+
+    suspend fun markConfigured() {
+        context.dataStore.edit { it[Keys.IS_CONFIGURED] = "true" }
+    }
+
     suspend fun isConfiguredSync(): Boolean = isConfigured.first()
 }

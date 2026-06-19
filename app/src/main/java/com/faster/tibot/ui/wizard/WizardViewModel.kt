@@ -61,9 +61,9 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     fun nextStep() {
         val step = _state.value.currentStep
         if (step == 2) {
-            // Admin config done -> save config -> go to download step
+            // Admin done -> save token (not configured yet, rootfs not deployed)
             viewModelScope.launch {
-                settingsRepo.saveConfig(
+                settingsRepo.saveTokenOnly(
                     token = _state.value.botToken,
                     adminId = _state.value.adminId.toLong(),
                 )
@@ -211,6 +211,9 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
             _state.value = _state.value.copy(
                 deployProgress = _state.value.deployProgress + stepBot
             )
+
+            // All deploy steps DONE — now mark as fully configured
+            settingsRepo.markConfigured()
         } catch (e: Exception) {
             // Mark any pending or in-progress steps as ERROR
             val errorSteps = _state.value.deployProgress.map { step ->
