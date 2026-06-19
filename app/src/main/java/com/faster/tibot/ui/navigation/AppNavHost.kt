@@ -1,6 +1,5 @@
 package com.faster.tibot.ui.navigation
 
-import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -11,7 +10,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.faster.tibot.data.proot.ProotManager
-import com.faster.tibot.service.TiBotForegroundService
 import com.faster.tibot.ui.autoreply.AutoReplyScreen
 import com.faster.tibot.ui.chats.ChatDetailScreen
 import com.faster.tibot.ui.chats.ChatListScreen
@@ -31,8 +29,7 @@ fun AppNavHost(
 
     val startDest = when {
         !isConfigured -> Routes.WIZARD
-        isConfigured && !rootfsDeployed -> Routes.WIZARD  // token saved but rootfs not installed
-        !botOnline -> Routes.WIZARD
+        isConfigured && !rootfsDeployed -> Routes.WIZARD
         else -> Routes.CHATS
     }
 
@@ -44,8 +41,6 @@ fun AppNavHost(
         composable(Routes.WIZARD) {
             val context = LocalContext.current
             WizardScreen(onComplete = {
-                // 启动前台服务
-                context.startService(Intent(context, TiBotForegroundService::class.java))
                 navController.navigate(Routes.CHATS) {
                     popUpTo(Routes.WIZARD) { inclusive = true }
                 }

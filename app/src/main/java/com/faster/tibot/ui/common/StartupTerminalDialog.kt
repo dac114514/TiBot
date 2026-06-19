@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,10 +32,13 @@ private val TerminalGray = Color(0xFFCCCCCC)
 
 @Composable
 fun StartupTerminalDialog(
-    prootManager: ProotManager,
-    onSuccess: () -> Unit,
-    onBack: () -> Unit,
+    show: Boolean,
+    onBack: () -> Unit = {},
+    onSuccess: () -> Unit = {},
 ) {
+    if (!show) return
+    val context = LocalContext.current
+    val prootManager = remember { ProotManager.getInstance(context) }
     val status by BotConnectionStore.state.collectAsState()
     var lines by remember { mutableStateOf(listOf("$ starting container...")) }
     val listState = rememberLazyListState()

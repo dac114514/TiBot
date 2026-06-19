@@ -341,6 +341,17 @@ class RootfsDownloadManager(private val context: Context) {
                                 } catch (e: Exception) {
                                     Log.w("RootfsDownloadMgr", "symlink creation failed for ${entry.name}: ${e.message}")
                                 }
+                            } else if (entry.isLink) {
+                                // Hard link to an existing file in the rootfs
+                                val existingPath = java.io.File(destDir, entry.linkName)
+                                destPath.parentFile?.mkdirs()
+                                try {
+                                    android.system.Os.link(existingPath.absolutePath, destPath.absolutePath)
+                                } catch (e: Exception) {
+                                    // Fallback: copy the file content instead
+                                    Log.w("RootfsDownloadMgr", "hard link failed for ${entry.name}, copying instead: ${e.message}")
+                                    FileOutputStream(destPath).use { fos -> tarIn.copyTo(fos) }
+                                }
                             } else {
                                 destPath.parentFile?.mkdirs()
                                 FileOutputStream(destPath).use { fos -> tarIn.copyTo(fos) }

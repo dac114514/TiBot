@@ -20,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.faster.tibot.ui.common.StartupTerminalDialog
 
 @Composable
 fun WizardScreen(
@@ -28,7 +27,6 @@ fun WizardScreen(
     vm: WizardViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsState()
-    var showStartupDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -99,25 +97,13 @@ fun WizardScreen(
                     onRetry = { vm.startDownload() },
                     onLaunch = {
                         vm.onLaunchGateway()
-                        showStartupDialog = true
+                        onComplete()
                     },
                 )
             }
         }
     }
 
-    if (showStartupDialog) {
-        StartupTerminalDialog(
-            prootManager = vm.prootManager,
-            onSuccess = {
-                showStartupDialog = false
-                onComplete()
-            },
-            onBack = {
-                showStartupDialog = false
-            },
-        )
-    }
 }
 
 // ── Welcome Step ──────────────────────────────────────────────

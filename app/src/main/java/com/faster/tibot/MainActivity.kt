@@ -29,8 +29,8 @@ import com.faster.tibot.data.BotConnectionStore
 import com.faster.tibot.data.ConnectionStatus
 import com.faster.tibot.data.local.SettingsRepository
 import com.faster.tibot.service.TiBotForegroundService
-import com.faster.tibot.ui.common.LoadingDialog
 import com.faster.tibot.ui.common.OfflineDialog
+import com.faster.tibot.ui.common.StartupTerminalDialog
 import com.faster.tibot.ui.navigation.AppNavHost
 import com.faster.tibot.ui.navigation.Routes
 import com.faster.tibot.ui.theme.TiBotTheme
@@ -97,11 +97,11 @@ private fun AppRoot() {
             }
         },
     ) { innerPadding ->
-        // Loading/Offline dialogs (shown globally, not tied to any specific screen)
-        LoadingDialog(
-            isConfigured = isConfigured,
-            onTimeoutBack = {
-                BotConnectionStore.setStatus(ConnectionStatus.ONLINE) // 清除阻塞状态
+        // Global startup terminal dialog (shown when bot is connecting)
+        StartupTerminalDialog(
+            show = isConfigured && (connectionState.status == ConnectionStatus.CONNECTING),
+            onBack = {
+                BotConnectionStore.setStatus(ConnectionStatus.ONLINE)
                 navController.navigate(Routes.SETTINGS) {
                     popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                 }
