@@ -1,0 +1,9 @@
+[
+  {
+    "keyword": "bye",
+    "reply": "Goodbye!",
+    "match_type": "exact",
+    "enabled": false,
+    "rule_id": "00a3c285-f9bf-43ff-91f4-11e94b6f8c74"
+  }
+]

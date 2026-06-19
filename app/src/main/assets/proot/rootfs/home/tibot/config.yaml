@@ -1,0 +1,7 @@
+bot_token: "YOUR_BOT_TOKEN_HERE"
+admin_ids:
+  - 123456789
+mqtt:
+  host: "127.0.0.1"
+  port: 1883
+  topic_prefix: "tibot"
