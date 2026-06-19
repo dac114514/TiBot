@@ -113,8 +113,7 @@ class RootfsDownloadManager(private val context: Context) {
         var lastProgressTime = System.currentTimeMillis()
 
         val success = withTimeoutOrNull(HARD_TIMEOUT_MS) {
-            withContext(Dispatchers.IO) {
-                var done = false
+            var done = false
                 while (!done) {
                     val query = DownloadManager.Query().setFilterById(downloadId)
                     dm.query(query).use { cursor ->
@@ -204,7 +203,6 @@ class RootfsDownloadManager(private val context: Context) {
                     }
                     if (!done) delay(POLL_INTERVAL_MS)
                 }
-            }
         }
 
         if (success == null) {
@@ -251,13 +249,12 @@ class RootfsDownloadManager(private val context: Context) {
         log("开始解压 ${tarFile.name}")
         emit(DownloadProgress(percent = 0, state = DownloadState.EXTRACTING, logs = logs.toList()))
 
-        withContext(Dispatchers.IO) {
-            destDir.mkdirs()
+        destDir.mkdirs()
             val tarStream = decompressStream(tarFile)
             if (tarStream == null) {
                 log("解压失败: 无法识别文件格式")
                 emit(DownloadProgress(state = DownloadState.ERROR, error = "无法识别文件格式 (需要 .tar.gz 或 .tar.xz)", logs = logs.toList()))
-                return@withContext
+                return@flow
             }
 
             try {
@@ -319,9 +316,8 @@ class RootfsDownloadManager(private val context: Context) {
                     error = "解压失败: ${e.message}",
                     logs = logs.toList(),
                 ))
-                return@withContext
+                return@flow
             }
-        }
 
         emit(DownloadProgress(percent = 100, state = DownloadState.DONE, logs = logs.toList()))
     }.flowOn(Dispatchers.IO)
