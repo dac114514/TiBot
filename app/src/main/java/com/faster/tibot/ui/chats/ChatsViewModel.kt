@@ -43,7 +43,7 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeChatId = MutableStateFlow<Long?>(null)
     val activeChatId = _activeChatId.asStateFlow()
 
-    private var lastSubscribedTopic: String? = null
+    private val subscribedTopics = mutableListOf<String>()
 
     private val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -179,16 +179,19 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     fun selectChat(chatId: Long) {
         _activeChatId.value = chatId
 
-        // Unsubscribe from previous chat topic
-        lastSubscribedTopic?.let { mqtt.unsubscribe(it) }
+        // Unsubscribe from previous chat topics
+        subscribedTopics.forEach { mqtt.unsubscribe(it) }
+        subscribedTopics.clear()
 
         // Subscribe to incoming messages for this chat
-        val topic = "tibot/msg/in/$chatId"
-        mqtt.subscribe(topic)
-        lastSubscribedTopic = topic
+        val msgTopic = "tibot/msg/in/$chatId"
+        mqtt.subscribe(msgTopic)
+        subscribedTopics.add(msgTopic)
 
         // Also subscribe to file notifications for this chat
-        mqtt.subscribe("tibot/msg/file/$chatId")
+        val fileTopic = "tibot/msg/file/$chatId"
+        mqtt.subscribe(fileTopic)
+        subscribedTopics.add(fileTopic)
 
         // Request chat history via MQTT
         val requestJson = JSONObject().apply {
@@ -256,7 +259,8 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        lastSubscribedTopic?.let { mqtt.unsubscribe(it) }
+        subscribedTopics.forEach { mqtt.unsubscribe(it) }
+        subscribedTopics.clear()
     }
 
     private fun sampleMessagesForChat(chatId: Long): List<ChatMessage> {
