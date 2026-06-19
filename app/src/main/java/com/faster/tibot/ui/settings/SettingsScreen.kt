@@ -100,13 +100,13 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
             SettingsRow(
                 icon = Icons.Filled.Stop,
                 title = "停止容器",
-                onClick = { /* TODO: stop container */ },
+                onClick = { vm.stopContainer() },
             )
             PaddedDivider()
             SettingsRow(
                 icon = Icons.Filled.Refresh,
                 title = "重启容器",
-                onClick = { /* TODO: restart container */ },
+                onClick = { vm.restartContainer() },
             )
             PaddedDivider()
             SettingsRow(
@@ -162,7 +162,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
             SettingsRow(
                 icon = Icons.Filled.Key,
                 title = "Bot Token",
-                subtitle = if (tokenVisible) "1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ" else "••••••••••••••••••",
+                subtitle = if (tokenVisible) vm.botToken.collectAsState().value.take(10) + "•••" else "••••••••••••••••••",
                 onClick = { tokenVisible = !tokenVisible },
                 trailing = {
                     Icon(
