@@ -16,36 +16,33 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun TerminalScreen() {
-    var history by remember { mutableStateOf(listOf(
-        "# TiBot Terminal v0.1",
-        "# Ubuntu 24.04 LTS (proot) | Python 3.12",
-        "",
-        "$ systemctl status mosquitto",
-        "● mosquitto.service - MQTT Broker",
-        "   Active: active (running)",
-        "",
-        "$ python3 --version",
-        "Python 3.12.3",
-    )) }
+fun TerminalScreen(vm: TerminalViewModel = viewModel()) {
+    val history by vm.history.collectAsState()
     var input by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
+    LaunchedEffect(history.size) {
+        scrollState.animateScrollTo(scrollState.maxValue)
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        // Title bar
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("终端", color = Color.White, style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { history = emptyList() }) {
+            Text(
+                "终端",
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            TextButton(onClick = { vm.clearHistory() }) {
                 Text("清屏", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
             }
         }
 
-        // Terminal output
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -53,14 +50,15 @@ fun TerminalScreen() {
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
-            history.forEach { line ->
-                val isPrompt = line.startsWith("$ ")
-                val isComment = line.startsWith("# ")
+            history.forEach { entry ->
                 Text(
-                    text = line,
+                    text = entry,
                     color = when {
-                        isPrompt -> MaterialTheme.colorScheme.primary
-                        isComment -> MaterialTheme.colorScheme.onSurfaceVariant
+                        entry.startsWith("$ ") -> MaterialTheme.colorScheme.primary
+                        entry.startsWith("# ") -> MaterialTheme.colorScheme.onSurfaceVariant
+                        entry.startsWith("⏳") -> MaterialTheme.colorScheme.secondary
+                        entry.contains("error", ignoreCase = true) ||
+                            entry.contains("Error") -> MaterialTheme.colorScheme.error
                         else -> Color(0xFFe8f0fe)
                     },
                     fontFamily = FontFamily.Monospace,
@@ -70,26 +68,39 @@ fun TerminalScreen() {
             }
         }
 
-        // Input line
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp).background(MaterialTheme.colorScheme.background),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("$ ", color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+            Text(
+                "$ ",
+                color = MaterialTheme.colorScheme.primary,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 14.sp,
+            )
             TextField(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                textStyle = TextStyle(color = Color(0xFFe8f0fe), fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                textStyle = TextStyle(
+                    color = Color(0xFFe8f0fe),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 13.sp,
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
                     if (input.isNotBlank()) {
-                        history = history + "\$ $input" + "⏳ 执行中..."
-                        // TODO: send via MQTT tibot/cmd/exec
+                        vm.executeCommand(input.trim())
                         input = ""
                     }
                 }),
-                placeholder = { Text("输入命令...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace) },
+                placeholder = {
+                    Text(
+                        "输入命令...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                },
                 singleLine = true,
             )
         }

@@ -43,13 +43,7 @@ class AutoReplyViewModel(application: Application) : AndroidViewModel(applicatio
             put("action", "get_all")
         }.toString())
 
-        // Load sample rules for development as fallback
-        _rules.value = listOf(
-            AutoReplyRuleUi(ruleId = "1", keyword = "你好", reply = "你好！欢迎咨询！", matchType = "exact", enabled = true),
-            AutoReplyRuleUi(ruleId = "2", keyword = "价格", reply = "基础版 ¥99/月", matchType = "contains", enabled = true),
-            AutoReplyRuleUi(ruleId = "3", keyword = "联系客服", reply = "请发邮件至...", matchType = "regex", enabled = false),
-            AutoReplyRuleUi(ruleId = "4", keyword = "/start", reply = "欢迎使用 TiBot！", matchType = "command", enabled = true),
-        )
+        // Rules are loaded from backend via MQTT, no hardcoded fallback
     }
 
     private fun handleRuleList(payload: String) {
