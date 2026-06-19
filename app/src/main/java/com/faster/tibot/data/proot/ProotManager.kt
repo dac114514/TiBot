@@ -75,7 +75,7 @@ class ProotManager(private val context: Context) {
             val p = pb.start()
             process = p
             restartCount = 0
-            Log.i(TAG, "startProot OK: pid=${p.pid}")
+            Log.i(TAG, "startProot OK: process started")
 
             // Log stdout/stderr in background
             Thread({

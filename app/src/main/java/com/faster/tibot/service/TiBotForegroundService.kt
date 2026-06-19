@@ -58,7 +58,7 @@ class TiBotForegroundService : Service() {
                 stopSelf()
                 return@launch
             }
-            Log.i("TiBotService", "proot process started: pid=${proc.pid}")
+            Log.i("TiBotService", "proot process started successfully")
 
             // Step 2: Connect MQTT
             mqtt.connect()
