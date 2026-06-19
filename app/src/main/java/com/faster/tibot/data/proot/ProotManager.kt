@@ -67,7 +67,7 @@ class ProotManager(private val context: Context) {
             "-b", "/proc",
             "-b", "/sys",
             "-b", "/etc/resolv.conf",
-            "/bin/bash", "-c", "cd /home/tibot && bash start.sh"
+            "/usr/bin/bash", "-c", "cd /home/tibot && bash start.sh"
         )
         Log.i(TAG, "startProot: ${cmd.joinToString(" ")}")
 

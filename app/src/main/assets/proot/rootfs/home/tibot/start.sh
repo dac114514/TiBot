@@ -15,12 +15,12 @@ if [ ! -f "$BOOTSTRAP_DONE" ]; then
     fi
 
     # Install packages
-    apt-get update -qq
-    apt-get install -y -qq python3 python3-pip mosquitto 2>&1
+    apt-get update -qq || exit 1
+    apt-get install -y -qq python3 python3-pip mosquitto 2>&1 || exit 1
 
     # Install Python dependencies
     if [ -f /home/tibot/requirements.txt ]; then
-        pip3 install -r /home/tibot/requirements.txt 2>&1
+        pip3 install -r /home/tibot/requirements.txt 2>&1 || exit 1
     fi
 
     touch "$BOOTSTRAP_DONE"

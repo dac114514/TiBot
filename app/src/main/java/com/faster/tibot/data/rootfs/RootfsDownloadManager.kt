@@ -331,7 +331,8 @@ class RootfsDownloadManager(private val context: Context) {
                                 destPath.parentFile?.mkdirs()
                                 try {
                                     android.system.Os.symlink(entry.linkName, destPath.absolutePath)
-                                } catch (_: Exception) {
+                                } catch (e: Exception) {
+                                    Log.w("RootfsDownloadMgr", "symlink creation failed for ${entry.name}: ${e.message}")
                                 }
                             } else {
                                 destPath.parentFile?.mkdirs()

@@ -56,6 +56,7 @@ class TiBotForegroundService : Service() {
             if (proc == null) {
                 val errMsg = prootManager.lastError.ifEmpty { "未知错误" }
                 Log.e("TiBotService", "proot start returned null: $errMsg")
+                updateNotification("Bot 启动失败")
                 BotConnectionStore.setStatus(ConnectionStatus.CRASHED, "proot 启动失败: $errMsg")
                 stopSelf()
                 return@launch
@@ -83,6 +84,7 @@ class TiBotForegroundService : Service() {
                 val isAlive = prootManager.isRunning()
                 val errMsg = if (isAlive) "Bot 启动超时 (60s)" else "proot 进程已退出 (可能是依赖安装失败或 start.sh 报错)"
                 Log.e("TiBotService", "waitForBotReady timeout, process alive=$isAlive")
+                updateNotification("Bot 启动失败: $errMsg")
                 BotConnectionStore.setStatus(ConnectionStatus.TIMEOUT, errMsg)
                 return@launch
             }
@@ -147,7 +149,9 @@ class TiBotForegroundService : Service() {
                 } else {
                     BotConnectionStore.setStatus(ConnectionStatus.CRASHED, "容器已崩溃，超过最大重启次数")
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w("TiBotService", "monitorProcessExit error: ${e.message}")
+            }
         }
     }
 
