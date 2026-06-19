@@ -5,16 +5,25 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
 import com.faster.tibot.data.proot.ProotManager
+import com.faster.tibot.data.rootfs.DownloadProgress
+import com.faster.tibot.data.rootfs.DownloadState
+import com.faster.tibot.data.rootfs.RootfsDownloadManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 data class WizardState(
-    val currentStep: Int = 0,  // 0=welcome, 1=token, 2=admin, 3=deploying
+    val currentStep: Int = 0,  // 0=welcome, 1=token, 2=admin, 3=download, 4=deploying
     val botToken: String = "",
     val tokenValid: Boolean = false,
     val adminId: String = "",
     val adminIdValid: Boolean = false,
+    val downloadProgress: DownloadProgress = DownloadProgress(),
+    val selectedMirrorId: String = "github",
+    val triedMirrorIds: List<String> = emptyList(),
     val deployProgress: List<DeployStep> = emptyList(),
 )
 
@@ -27,6 +36,13 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     private val _state = MutableStateFlow(WizardState())
     val state = _state.asStateFlow()
 
+    private val rootfsDownloadMgr = RootfsDownloadManager(application)
+    private val rootfsFile get() = File(application.filesDir, "rootfs.tar.xz")
+    private val rootfsDir get() = File(application.filesDir, "rootfs")
+    private val sha256Base = "https://github.com/dac114514/TiBot/releases/download/rootfs"
+
+    val mirrors = rootfsDownloadMgr.buildDefaultMirrors(sha256Base)
+
     fun setToken(token: String) {
         val valid = token.length > 20 && token.contains(":")
         _state.value = _state.value.copy(botToken = token, tokenValid = valid)
@@ -37,23 +53,24 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = _state.value.copy(adminId = id.trim(), adminIdValid = valid)
     }
 
+    fun setMirror(mirrorId: String) {
+        _state.value = _state.value.copy(selectedMirrorId = mirrorId)
+    }
+
     fun nextStep() {
         val step = _state.value.currentStep
         if (step == 2) {
-            // Save and start deployment
+            // Admin config done -> save config -> go to download step
             viewModelScope.launch {
                 settingsRepo.saveConfig(
                     token = _state.value.botToken,
                     adminId = _state.value.adminId.toLong(),
                 )
-                _state.value = _state.value.copy(currentStep = 3, deployProgress = listOf(
-                    DeployStep("解压 Ubuntu rootfs", DeployStatus.IN_PROGRESS),
-                    DeployStep("安装 Python 依赖", DeployStatus.PENDING),
-                    DeployStep("启动 Mosquitto", DeployStatus.PENDING),
-                    DeployStep("启动 Bot 桥接层", DeployStatus.PENDING),
-                ))
-                deployProgress()
+                _state.value = _state.value.copy(currentStep = 3)
             }
+        } else if (step == 3) {
+            // Download step: triggered by DownloadStep button (startDownload)
+            // No auto-advance here
         } else {
             _state.value = _state.value.copy(currentStep = step + 1)
         }
@@ -64,29 +81,138 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
         if (step > 0) _state.value = _state.value.copy(currentStep = step - 1)
     }
 
+    fun startDownload() {
+        val mirror = mirrors.find { it.id == _state.value.selectedMirrorId } ?: return
+        viewModelScope.launch {
+            rootfsDownloadMgr.download(mirror, rootfsFile).collect { progress ->
+                _state.value = _state.value.copy(downloadProgress = progress)
+                if (progress.state == DownloadState.ERROR) {
+                    val tried = _state.value.triedMirrorIds + mirror.id
+                    val nextMirror = mirrors.firstOrNull { it.id !in tried }
+                    if (nextMirror != null) {
+                        _state.value = _state.value.copy(
+                            selectedMirrorId = nextMirror.id,
+                            triedMirrorIds = tried,
+                        )
+                        startDownload()
+                        return@collect
+                    }
+                    _state.value = _state.value.copy(triedMirrorIds = tried)
+                }
+                if (progress.state == DownloadState.DONE) {
+                    verifyAndExtract()
+                }
+            }
+        }
+    }
+
+    private suspend fun verifyAndExtract() {
+        val currentMirror = mirrors.find { it.id == _state.value.selectedMirrorId } ?: return
+
+        // Download sha256 checksum file
+        _state.value = _state.value.copy(
+            downloadProgress = DownloadProgress(state = DownloadState.VERIFYING, percent = 100)
+        )
+
+        val sha256File = File(application.filesDir, "rootfs.tar.xz.sha256")
+        val sha256Url = currentMirror.url + ".sha256"
+        val sha256Downloaded = downloadSha256(sha256Url, sha256File)
+
+        val expectedSha256 = if (sha256Downloaded) {
+            try {
+                sha256File.readText().trim().split("\\s+".toRegex()).first()
+            } catch (_: Exception) { "" }
+        } else ""
+
+        // If we have an expected hash and verification fails, try next mirror
+        if (expectedSha256.isNotEmpty() && !rootfsDownloadMgr.verifySha256(rootfsFile, expectedSha256)) {
+            val tried = _state.value.triedMirrorIds + currentMirror.id
+            val nextMirror = mirrors.firstOrNull { it.id !in tried }
+            if (nextMirror != null) {
+                _state.value = _state.value.copy(
+                    selectedMirrorId = nextMirror.id,
+                    triedMirrorIds = tried,
+                )
+                startDownload()
+                return
+            } else {
+                _state.value = _state.value.copy(
+                    downloadProgress = DownloadProgress(
+                        state = DownloadState.ERROR,
+                        error = "文件校验失败，已尝试所有镜像源",
+                    )
+                )
+                return
+            }
+        }
+
+        // Extract
+        rootfsDownloadMgr.extractTarXz(rootfsFile, rootfsDir).collect { progress ->
+            _state.value = _state.value.copy(downloadProgress = progress)
+            if (progress.state == DownloadState.DONE) {
+                // Move to deploy progress step
+                _state.value = _state.value.copy(
+                    currentStep = 4,
+                    deployProgress = listOf(
+                        DeployStep("Ubuntu rootfs 已部署", DeployStatus.DONE),
+                        DeployStep("准备启动容器", DeployStatus.PENDING),
+                    ),
+                )
+                deployProgress()
+            }
+        }
+    }
+
+    private suspend fun downloadSha256(url: String, destFile: File): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                java.net.URL(url).openStream().use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     private suspend fun deployProgress() {
-        val steps = _state.value.deployProgress.toMutableList()
+        val initialSteps = _state.value.deployProgress.toMutableList()
 
         try {
-            // Step 1: Deploy rootfs (extracts proot binary and Ubuntu rootfs from assets)
+            // Step 0: Ubuntu rootfs already extracted (mark DONE)
+            if (initialSteps.isNotEmpty()) {
+                initialSteps[0] = initialSteps[0].copy(status = DeployStatus.DONE)
+                _state.value = _state.value.copy(deployProgress = initialSteps)
+            }
+
+            // Step 1: Run prootManager.deployRootfs to set up proot binary + environment
+            if (initialSteps.size > 1) {
+                initialSteps[1] = initialSteps[1].copy(status = DeployStatus.IN_PROGRESS)
+                _state.value = _state.value.copy(deployProgress = initialSteps)
+            }
             prootManager.deployRootfs()
-            steps[0] = steps[0].copy(status = DeployStatus.DONE)
-            _state.value = _state.value.copy(deployProgress = steps)
+            if (initialSteps.size > 1) {
+                initialSteps[1] = initialSteps[1].copy(status = DeployStatus.DONE)
+                _state.value = _state.value.copy(deployProgress = initialSteps)
+            }
 
-            // Step 2: Install Python dependencies (handled inside deployRootfs)
-            steps[1] = steps[1].copy(status = DeployStatus.DONE)
-            _state.value = _state.value.copy(deployProgress = steps)
+            // Step 2: Start Mosquitto
+            val stepMosq = DeployStep("启动 Mosquitto", DeployStatus.DONE)
+            _state.value = _state.value.copy(
+                deployProgress = _state.value.deployProgress + stepMosq
+            )
 
-            // Step 3: Start Mosquitto (handled by start.sh in proot)
-            steps[2] = steps[2].copy(status = DeployStatus.DONE)
-            _state.value = _state.value.copy(deployProgress = steps)
-
-            // Step 4: Start bot bridge (handled by start.sh in proot)
-            steps[3] = steps[3].copy(status = DeployStatus.DONE)
-            _state.value = _state.value.copy(deployProgress = steps)
+            // Step 3: Start bot bridge
+            val stepBot = DeployStep("启动 Bot 桥接层", DeployStatus.DONE)
+            _state.value = _state.value.copy(
+                deployProgress = _state.value.deployProgress + stepBot
+            )
         } catch (e: Exception) {
-            // Mark any pending steps as ERROR
-            val errorSteps = steps.map { step ->
+            // Mark any pending or in-progress steps as ERROR
+            val errorSteps = _state.value.deployProgress.map { step ->
                 if (step.status == DeployStatus.PENDING || step.status == DeployStatus.IN_PROGRESS) {
                     step.copy(status = DeployStatus.ERROR)
                 } else step

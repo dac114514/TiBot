@@ -35,14 +35,14 @@ fun WizardScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         // Progress dots (hidden during deploy simulation)
-        if (state.currentStep < 3) {
+        if (state.currentStep < 4) {
             Row(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 24.dp),
             ) {
-                (0..2).forEach { i ->
+                (0..3).forEach { i ->
                     val color by animateColorAsState(
                         targetValue = when {
                             i < state.currentStep -> MaterialTheme.colorScheme.primary
@@ -83,7 +83,16 @@ fun WizardScreen(
                     onNext = { vm.nextStep() },
                     onBack = { vm.prevStep() },
                 )
-                3 -> DeployProgressStep(
+                3 -> DownloadStep(
+                    progress = state.downloadProgress,
+                    mirrors = vm.mirrors,
+                    selectedMirrorId = state.selectedMirrorId,
+                    triedMirrorIds = state.triedMirrorIds,
+                    onMirrorSelect = { vm.setMirror(it) },
+                    onStartDownload = { vm.startDownload() },
+                    onRetry = { vm.startDownload() },
+                )
+                4 -> DeployProgressStep(
                     steps = state.deployProgress,
                     onComplete = onComplete,
                 )
