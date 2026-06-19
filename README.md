@@ -42,7 +42,7 @@ app/src/main/java/com/example/androidstarter/
 ├── data/
 │   └── local/
 │       ├── ThemeMode.kt             # 主题模式枚举
-│       └── PreferencesRepository.kt # DataStore 读写封装
+│       └── SettingsRepository.kt    # DataStore 读写封装
 └── ui/
     ├── theme/
     │   ├── Color.kt                 # 蓝色调色板（含深色变体）
