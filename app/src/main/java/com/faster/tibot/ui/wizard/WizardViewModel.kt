@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.io.walkTopDown
 
 enum class Phase {
     IDLE, SPEED_TEST, READY, DOWNLOADING, EXTRACTING, DEPLOYING, DONE, ERROR
@@ -221,20 +222,37 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = _state.value.copy(phase = Phase.DEPLOYING, logs = logs)
 
         withContext(Dispatchers.IO) {
-            val sh = File(rootfsDir, "bin/sh")
-            val shUsr = File(rootfsDir, "usr/bin/sh")
-            if ((sh.exists() && sh.canExecute()) || (shUsr.exists() && shUsr.canExecute())) {
+            // Must-exist critical paths (Ubuntu 24.04 usrmerge layout)
+            val checks = listOf(
+                "usr/bin/sh" to "shell",
+                "usr/bin/bash" to "bash",
+                "usr/bin/dpkg" to "dpkg",
+                "etc/apt/sources.list.d/ubuntu.sources" to "apt sources",
+                "etc/os-release" to "os-release",
+                "usr/lib" to "lib dir",
+            )
+
+            var allOk = true
+            for ((path, label) in checks) {
+                val f = File(rootfsDir, path)
+                val ok = if (label == "lib dir") f.isDirectory else f.exists()
+                if (!ok) {
+                    logs += LogLine("x missing: $path ($label)", LogLevel.ERROR)
+                    allOk = false
+                }
+            }
+
+            // Verify we have a reasonable number of files (not just a few extracted from a partial archive)
+            var fileCount = 0
+            rootfsDir.walkTopDown().forEach { fileCount++ }
+            if (fileCount < 3000) {
+                logs += LogLine("x only $fileCount files found (expected 3000+)", LogLevel.ERROR)
+                allOk = false
+            }
+
+            if (allOk) {
                 val updatedLogs = _state.value.logs.toMutableList()
-                updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
-                _state.value = _state.value.copy(
-                    phase = Phase.DONE,
-                    phaseSubtitle = "deploy complete",
-                    progressPercent = 100,
-                    logs = updatedLogs,
-                )
-            } else if (sh.setExecutable(true) || shUsr.setExecutable(true)) {
-                val updatedLogs = _state.value.logs.toMutableList()
-                updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
+                updatedLogs += LogLine("v rootfs verified ($fileCount files)", LogLevel.SUCCESS)
                 _state.value = _state.value.copy(
                     phase = Phase.DONE,
                     phaseSubtitle = "deploy complete",
@@ -243,11 +261,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                 )
             } else {
                 val updatedLogs = _state.value.logs.toMutableList()
-                updatedLogs += LogLine("x rootfs verification failed: sh not found", LogLevel.ERROR)
+                updatedLogs += LogLine("x rootfs verification failed", LogLevel.ERROR)
                 _state.value = _state.value.copy(
                     phase = Phase.ERROR,
                     phaseSubtitle = "rootfs verification failed",
-                    error = "rootfs verification failed: sh not found",
+                    error = "rootfs verification failed: critical files missing or incomplete",
                     logs = updatedLogs,
                 )
             }

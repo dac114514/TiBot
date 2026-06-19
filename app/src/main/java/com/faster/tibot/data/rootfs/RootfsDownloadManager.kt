@@ -74,6 +74,10 @@ class RootfsDownloadManager(private val context: Context) {
     // Polling interval for DownloadManager progress
     private val POLL_INTERVAL_MS = 500L
 
+    // Expected: ubuntu-base-24.04.4-base-arm64.tar.gz
+    private val EXPECTED_SIZE = 29_870_567L
+    private val EXPECTED_SHA256 = "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2"
+
     suspend fun download(
         mirror: MirrorSource,
         destFile: File,
@@ -87,6 +91,11 @@ class RootfsDownloadManager(private val context: Context) {
         emit(DownloadProgress(state = DownloadState.DOWNLOADING, logs = logs.toList()))
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+        // Delete any existing file to prevent DownloadManager from reusing partial downloads
+        val actualFile = File(context.getExternalFilesDir(null), "rootfs.tar.gz")
+        actualFile.delete()
+
         val request = try {
             DownloadManager.Request(Uri.parse(mirror.url))
                 .setDestinationInExternalFilesDir(context, null, "rootfs.tar.gz")
@@ -122,16 +131,6 @@ class RootfsDownloadManager(private val context: Context) {
                             when (status) {
                                 DownloadManager.STATUS_SUCCESSFUL -> {
                                     done = true
-                                    log("下载完成 (${lastBytes / 1024 / 1024}MB)")
-                                    emit(
-                                        DownloadProgress(
-                                            percent = 100,
-                                            downloadedBytes = lastBytes,
-                                            totalBytes = lastBytes,
-                                            state = DownloadState.DONE,
-                                            logs = logs.toList(),
-                                        )
-                                    )
                                 }
                                 DownloadManager.STATUS_FAILED -> {
                                     done = true
@@ -208,7 +207,6 @@ class RootfsDownloadManager(private val context: Context) {
         if (success == null) {
             // Timeout
             dm.remove(downloadId)
-            val actualFile = File(context.getExternalFilesDir(null), "rootfs.tar.gz")
             actualFile.delete()
             log("下载超时 (${HARD_TIMEOUT_MS / 1000}s)")
             emit(
@@ -218,7 +216,47 @@ class RootfsDownloadManager(private val context: Context) {
                     logs = logs.toList(),
                 )
             )
+            return@flow
         }
+
+        // Verify downloaded file integrity
+        val fileSize = actualFile.length()
+        if (fileSize != EXPECTED_SIZE) {
+            actualFile.delete()
+            log("文件大小不匹配: 预期 ${EXPECTED_SIZE / 1024 / 1024}MB, 实际 ${fileSize / 1024 / 1024}MB")
+            emit(
+                DownloadProgress(
+                    state = DownloadState.ERROR,
+                    error = "${mirror.name}: 文件损坏 (大小不匹配, 下载不完整)",
+                    logs = logs.toList(),
+                )
+            )
+            return@flow
+        }
+
+        if (!verifySha256(actualFile, EXPECTED_SHA256)) {
+            actualFile.delete()
+            log("SHA256 校验失败")
+            emit(
+                DownloadProgress(
+                    state = DownloadState.ERROR,
+                    error = "${mirror.name}: 文件损坏 (SHA256 校验失败)",
+                    logs = logs.toList(),
+                )
+            )
+            return@flow
+        }
+
+        log("下载完成 (${fileSize / 1024 / 1024}MB) ✓ SHA256 校验通过")
+        emit(
+            DownloadProgress(
+                percent = 100,
+                downloadedBytes = fileSize,
+                totalBytes = fileSize,
+                state = DownloadState.DONE,
+                logs = logs.toList(),
+            )
+        )
     }.flowOn(Dispatchers.IO)
 
     suspend fun verifySha256(file: File, expectedSha256: String): Boolean =
