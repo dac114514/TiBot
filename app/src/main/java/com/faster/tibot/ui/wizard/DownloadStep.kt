@@ -1,51 +1,59 @@
 package com.faster.tibot.ui.wizard
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.faster.tibot.data.rootfs.DownloadProgress
-import com.faster.tibot.data.rootfs.DownloadState
 import com.faster.tibot.data.rootfs.MirrorSource
+
+private val TelegramBlue = Color(0xFF2AABEE)
+private val TelegramGray = Color(0xFF8E8E93)
+private val TerminalBlack = Color(0xFF0D0D0D)
+private val TerminalGreen = Color(0xFF00FF00)
+private val TerminalRed = Color(0xFFFF4444)
+private val TerminalGray = Color(0xFFCCCCCC)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadStep(
-    progress: DownloadProgress,
+    phase: Phase,
+    subtitle: String,
+    progressPercent: Int,
+    downloadedBytes: Long,
+    totalBytes: Long,
+    speedBytesPerSec: Long,
+    logs: List<LogLine>,
     mirrors: List<MirrorSource>,
     selectedMirrorId: String,
-    triedMirrorIds: List<String>,
     onMirrorSelect: (String) -> Unit,
     onStartDownload: () -> Unit,
     onRetry: () -> Unit,
+    onLaunch: () -> Unit,
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
     val selectedMirror = mirrors.find { it.id == selectedMirrorId }
-    val isError = progress.state == DownloadState.ERROR
-    val isDone = progress.state == DownloadState.DONE
-    val isActive = progress.state == DownloadState.DOWNLOADING
-    val isExtracting = progress.state == DownloadState.EXTRACTING
-    val hasLogs = progress.logs.isNotEmpty()
     val logListState = rememberLazyListState()
+    val showMirrorSelector = phase != Phase.IDLE && phase != Phase.SPEED_TEST
 
-    // Auto-scroll log to bottom
-    LaunchedEffect(progress.logs.size) {
-        if (progress.logs.isNotEmpty()) {
-            logListState.animateScrollToItem(progress.logs.size - 1)
+    LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) {
+            logListState.animateScrollToItem(logs.size - 1)
         }
     }
 
@@ -53,132 +61,43 @@ fun DownloadStep(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(48.dp))
 
-        // ---- Status Header ----
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            when {
-                isError -> Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
-                isDone -> Icon(Icons.Filled.CloudDownload, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-                isActive || isExtracting -> CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.5.dp)
-                else -> Icon(Icons.Filled.CloudDownload, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = when {
-                    isError -> "下载失败"
-                    isExtracting -> "正在部署环境…"
-                    isDone -> "部署完成"
-                    isActive -> "正在下载 Ubuntu 环境"
-                    else -> "准备下载 Ubuntu 环境"
-                },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        Icon(
+            imageVector = when (phase) {
+                Phase.DOWNLOADING -> Icons.AutoMirrored.Filled.ArrowDownward
+                Phase.EXTRACTING, Phase.DEPLOYING -> Icons.Filled.Archive
+                Phase.DONE -> Icons.Filled.CheckCircle
+                Phase.ERROR -> Icons.Filled.Error
+                else -> Icons.Filled.CloudDownload
+            },
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = when (phase) {
+                Phase.ERROR -> MaterialTheme.colorScheme.error
+                else -> TelegramBlue
+            },
+        )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // ---- Progress bar ----
-        if (isActive || isExtracting) {
-            LinearProgressIndicator(
-                progress = { (progress.percent.toFloat() / 100f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(6.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    "${progress.percent}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (progress.totalBytes > 0 && !isExtracting) {
-                    val downloadedMB = progress.downloadedBytes / 1024 / 1024
-                    val totalMB = progress.totalBytes / 1024 / 1024
-                    Text(
-                        "${downloadedMB}MB / ${totalMB}MB",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (isActive && progress.speedBytesPerSec > 0) {
-                Spacer(Modifier.height(2.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    val speedMB = progress.speedBytesPerSec / 1024.0 / 1024.0
-                    Text(
-                        "${"%.1f".format(speedMB)} MB/s",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (progress.totalBytes > progress.downloadedBytes) {
-                        val remainingSec = (progress.totalBytes - progress.downloadedBytes) / progress.speedBytesPerSec.coerceAtLeast(1)
-                        Text(
-                            "剩余 ~${remainingSec}s",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
+        Text(
+            text = "env deploy",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
 
-        // ---- Scrollable Log Column ----
-        if (hasLogs) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            ) {
-                LazyColumn(
-                    state = logListState,
-                    modifier = Modifier.fillMaxSize().padding(8.dp),
-                ) {
-                    items(progress.logs) { line ->
-                        val logColor = when {
-                            line.contains("失败") || line.contains("Error") || line.contains("超时") || line.contains("停滞") ->
-                                MaterialTheme.colorScheme.error
-                            line.contains("完成") || line.contains("成功") ->
-                                MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        Text(
-                            text = line,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp,
-                            ),
-                            color = logColor,
-                            modifier = Modifier.padding(vertical = 1.dp),
-                        )
-                    }
-                }
-            }
-        } else {
-            // Fill space when no logs yet
-            Spacer(Modifier.weight(1f))
-        }
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(24.dp))
 
-        // ---- Bottom Controls ----
-
-        // Mirror selector (only when idle)
-        if (!isActive && !isExtracting && !isDone) {
+        if (showMirrorSelector) {
             ExposedDropdownMenuBox(
                 expanded = dropdownExpanded,
                 onExpandedChange = { dropdownExpanded = it },
@@ -188,7 +107,7 @@ fun DownloadStep(
                     value = selectedMirror?.name ?: "",
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("镜像源") },
+                    label = { Text("mirror") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
                     modifier = Modifier.fillMaxWidth().menuAnchor(),
                     shape = RoundedCornerShape(12.dp),
@@ -198,15 +117,8 @@ fun DownloadStep(
                     onDismissRequest = { dropdownExpanded = false },
                 ) {
                     mirrors.forEach { mirror ->
-                        val tried = mirror.id in triedMirrorIds
                         DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "${if (tried) "⚠ " else ""}${mirror.name}",
-                                    color = if (tried) MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                                    else MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
+                            text = { Text(mirror.name) },
                             onClick = {
                                 onMirrorSelect(mirror.id)
                                 dropdownExpanded = false
@@ -215,43 +127,101 @@ fun DownloadStep(
                     }
                 }
             }
+            Spacer(Modifier.height(12.dp))
         }
 
-        // Action buttons
-        if (isError) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = progress.error ?: "",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
+        if (phase == Phase.DOWNLOADING || phase == Phase.EXTRACTING || phase == Phase.DEPLOYING) {
+            LinearProgressIndicator(
+                progress = { (progressPercent.toFloat() / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+                color = TelegramBlue,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
-            Spacer(Modifier.height(4.dp))
-            if (triedMirrorIds.isNotEmpty()) {
-                Text(
-                    "已尝试: ${triedMirrorIds.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onRetry,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("重试")
-            }
-        } else if (!isActive && !isExtracting && !isDone) {
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = onStartDownload,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("开始下载", style = MaterialTheme.typography.titleMedium)
+                Text("$progressPercent%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (totalBytes > 0 && phase == Phase.DOWNLOADING) {
+                    val downloadedMB = downloadedBytes / 1024 / 1024
+                    val totalMB = totalBytes / 1024 / 1024
+                    Text("${downloadedMB}MB / ${totalMB}MB", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
+            if (phase == Phase.DOWNLOADING && speedBytesPerSec > 0) {
+                val speedMB = speedBytesPerSec / 1024.0 / 1024.0
+                Text("${"%.1f".format(speedMB)} MB/s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(8.dp),
+            color = TerminalBlack,
+        ) {
+            if (logs.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "waiting...",
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                        color = TerminalGray,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = logListState,
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                ) {
+                    items(logs) { line ->
+                        Text(
+                            text = line.text,
+                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 16.sp),
+                            color = when (line.level) {
+                                LogLevel.INFO -> TerminalGreen
+                                LogLevel.SUCCESS -> TerminalGreen
+                                LogLevel.ERROR -> TerminalRed
+                                LogLevel.PROGRESS -> TerminalGray
+                            },
+                            fontWeight = if (line.level == LogLevel.SUCCESS) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.padding(vertical = 1.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        val buttonEnabled = phase == Phase.READY || phase == Phase.ERROR || phase == Phase.DONE
+        Button(
+            onClick = when (phase) {
+                Phase.READY -> onStartDownload
+                Phase.ERROR -> onRetry
+                Phase.DONE -> onLaunch
+                else -> {}
+            },
+            enabled = buttonEnabled,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = TelegramBlue,
+                disabledContainerColor = TelegramGray,
+                disabledContentColor = Color.White,
+            ),
+        ) {
+            Text(
+                text = when (phase) {
+                    Phase.IDLE, Phase.SPEED_TEST -> "testing speed..."
+                    Phase.READY -> "start download"
+                    Phase.DOWNLOADING -> "downloading..."
+                    Phase.EXTRACTING, Phase.DEPLOYING -> "deploying..."
+                    Phase.DONE -> "launch"
+                    Phase.ERROR -> "retry"
+                },
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
 
         Spacer(Modifier.height(16.dp))
