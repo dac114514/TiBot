@@ -73,5 +73,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.paho.mqtt.client)
+    implementation("org.apache.commons:commons-compress:1.26.2")
     debugImplementation(libs.androidx.ui.tooling)
 }
