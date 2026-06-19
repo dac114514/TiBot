@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.BufferedInputStream
@@ -39,8 +41,33 @@ class RootfsDownloadManager(private val context: Context) {
         MirrorSource("official",   "Ubuntu 官方",   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"),
     )
 
-    // 30-second per-mirror download timeout
-    private val DOWNLOAD_TIMEOUT_MS = 30_000L
+    suspend fun speedTest(mirrors: List<MirrorSource>): List<SpeedResult> = withContext(Dispatchers.IO) {
+        coroutineScope {
+            mirrors.map { mirror ->
+                async {
+                    val start = System.currentTimeMillis()
+                    try {
+                        val url = java.net.URL(mirror.url)
+                        val conn = url.openConnection() as java.net.HttpURLConnection
+                        conn.requestMethod = "HEAD"
+                        conn.connectTimeout = 5_000
+                        conn.readTimeout = 5_000
+                        conn.connect()
+                        val latency = System.currentTimeMillis() - start
+                        conn.disconnect()
+                        SpeedResult(mirror.id, latency, null)
+                    } catch (e: Exception) {
+                        SpeedResult(mirror.id, -1, e.message ?: "unknown")
+                    }
+                }
+            }.awaitAll()
+        }
+    }
+
+    // Stall timeout: fail if no bytes received for this duration
+    private val STALL_TIMEOUT_MS = 30_000L
+    // Hard timeout: absolute max time for download (10 minutes)
+    private val HARD_TIMEOUT_MS = 600_000L
     // Polling interval for DownloadManager progress
     private val POLL_INTERVAL_MS = 500L
 
@@ -59,7 +86,7 @@ class RootfsDownloadManager(private val context: Context) {
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = try {
             DownloadManager.Request(Uri.parse(mirror.url))
-                .setDestinationUri(Uri.fromFile(destFile))
+                .setDestinationInExternalFilesDir(context, null, "rootfs.tar.gz")
                 .setTitle("TiBot Ubuntu 环境")
                 .setDescription("来自 ${mirror.name}")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
@@ -80,9 +107,9 @@ class RootfsDownloadManager(private val context: Context) {
 
         var lastBytes = 0L
         var lastTime = System.currentTimeMillis()
-        var stallCount = 0
+        var lastProgressTime = System.currentTimeMillis()
 
-        val success = withTimeoutOrNull(DOWNLOAD_TIMEOUT_MS) {
+        val success = withTimeoutOrNull(HARD_TIMEOUT_MS) {
             withContext(Dispatchers.IO) {
                 var done = false
                 while (!done) {
@@ -136,11 +163,9 @@ class RootfsDownloadManager(private val context: Context) {
                                     val bytesDelta = downloaded - lastBytes
                                     val speed = bytesDelta * 1000 / timeDelta
 
-                                    // Detect stalled download
-                                    if (bytesDelta == 0L && downloaded > 0) {
-                                        stallCount++
-                                    } else {
-                                        stallCount = 0
+                                    // Reset progress time when bytes received
+                                    if (bytesDelta > 0) {
+                                        lastProgressTime = now
                                     }
 
                                     lastBytes = downloaded
@@ -157,8 +182,8 @@ class RootfsDownloadManager(private val context: Context) {
                                         )
                                     )
 
-                                    // Fail if stalled for >60 polls (~30 seconds of no bytes)
-                                    if (stallCount > 60) {
+                                    // Fail if stalled: no bytes received for STALL_TIMEOUT_MS
+                                    if (now - lastProgressTime > STALL_TIMEOUT_MS) {
                                         done = true
                                         log("下载停滞: 30s 无数据")
                                         dm.remove(downloadId)
@@ -183,11 +208,11 @@ class RootfsDownloadManager(private val context: Context) {
             // Timeout
             dm.remove(downloadId)
             destFile.delete()
-            log("下载超时 (${DOWNLOAD_TIMEOUT_MS / 1000}s)")
+            log("下载超时 (${HARD_TIMEOUT_MS / 1000}s)")
             emit(
                 DownloadProgress(
                     state = DownloadState.ERROR,
-                    error = "${mirror.name}: 下载超时 (${DOWNLOAD_TIMEOUT_MS / 1000}s)",
+                    error = "${mirror.name}: 下载超时 (${HARD_TIMEOUT_MS / 1000}s)",
                     logs = logs.toList(),
                 )
             )
