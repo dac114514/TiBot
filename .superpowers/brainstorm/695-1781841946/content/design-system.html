@@ -1,0 +1,151 @@
+<h2>🎨 TiBot 设计系统 &amp; 导航结构</h2>
+<p class="subtitle">基于 Telegram 风格 + Material 3 的深色主题设计</p>
+
+<div class="section">
+  <h3>配色方案</h3>
+  <div class="cards" style="grid-template-columns: repeat(5, 1fr);">
+    <div class="card" style="text-align:center;">
+      <div style="background:#2B5278;height:60px;border-radius:12px;margin-bottom:8px;"></div>
+      <small><strong>Primary</strong><br>#2B5278</small>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="background:#4A8EC7;height:60px;border-radius:12px;margin-bottom:8px;"></div>
+      <small><strong>Primary Light</strong><br>#4A8EC7</small>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="background:#1E2A38;height:60px;border-radius:12px;margin-bottom:8px;"></div>
+      <small><strong>Surface Dark</strong><br>#1E2A38</small>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="background:#121B24;height:60px;border-radius:12px;margin-bottom:8px;"></div>
+      <small><strong>Background</strong><br>#121B24</small>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="background:#0F6E4A;height:60px;border-radius:12px;margin-bottom:8px;"></div>
+      <small><strong>Success</strong><br>#0F6E4A</small>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>底部导航结构 (4 Tab)</h3>
+  <div class="mockup" style="max-width:380px;margin:0 auto;">
+    <div style="background:#1E2A38;border-radius:16px;overflow:hidden;border:1px solid #2a3a4a;">
+      <div style="padding:16px;min-height:400px;">
+        <!-- Phone status bar -->
+        <div style="display:flex;justify-content:space-between;color:#8899AA;font-size:12px;margin-bottom:16px;">
+          <span>12:30</span>
+          <span>🔋 📶</span>
+        </div>
+
+        <!-- Screen title -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h3 style="margin:0;color:#E8F0FE;">消息</h3>
+          <div style="display:flex;gap:12px;">
+            <span style="color:#4A8EC7;cursor:pointer;">✏️</span>
+            <span style="color:#4A8EC7;cursor:pointer;">⋯</span>
+          </div>
+        </div>
+
+        <!-- Search bar -->
+        <div style="background:#2a3a4a;border-radius:10px;padding:8px 12px;color:#667788;margin-bottom:16px;">
+          🔍 搜索会话...
+        </div>
+
+        <!-- Chat list items -->
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;padding:10px;border-radius:10px;background:#23303E;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#4A8EC7;display:flex;align-items:center;justify-content:center;margin-right:12px;font-weight:bold;color:white;">G</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;">
+                <strong style="color:#E8F0FE;">群组讨论</strong>
+                <small style="color:#667788;">12:30</small>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <small style="color:#8899AA;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px;">好的，我现在就去处理</small>
+                <span style="background:#4A8EC7;color:white;border-radius:10px;padding:0 6px;font-size:11px;">3</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;padding:10px;border-radius:10px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#0F6E4A;display:flex;align-items:center;justify-content:center;margin-right:12px;font-weight:bold;color:white;">A</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;">
+                <strong style="color:#E8F0FE;">自动回复测试</strong>
+                <small style="color:#667788;">11:45</small>
+              </div>
+              <small style="color:#8899AA;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px;">你: 你好，有优惠吗？</small>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;padding:10px;border-radius:10px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#7B4A8C;display:flex;align-items:center;justify-content:center;margin-right:12px;font-weight:bold;color:white;">C</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;">
+                <strong style="color:#E8F0FE;">Channel 公告</strong>
+                <small style="color:#667788;">昨天</small>
+              </div>
+              <small style="color:#8899AA;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px;">新版本 v1.2 已发布</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Nav -->
+      <div style="display:flex;border-top:1px solid #2a3a4a;padding:8px 0;background:#182330;">
+        <div style="flex:1;text-align:center;padding:6px 0;">
+          <div style="font-size:20px;margin-bottom:2px;">💬</div>
+          <small style="color:#4A8EC7;font-weight:bold;">消息</small>
+        </div>
+        <div style="flex:1;text-align:center;padding:6px 0;">
+          <div style="font-size:20px;margin-bottom:2px;">🤖</div>
+          <small style="color:#667788;">自动回复</small>
+        </div>
+        <div style="flex:1;text-align:center;padding:6px 0;">
+          <div style="font-size:20px;margin-bottom:2px;">💻</div>
+          <small style="color:#667788;">终端</small>
+        </div>
+        <div style="flex:1;text-align:center;padding:6px 0;">
+          <div style="font-size:20px;margin-bottom:2px;">⚙️</div>
+          <small style="color:#667788;">设置</small>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;text-align:center;">
+      <small style="color:#667788;">主界面：底部 4 Tab 导航</small>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>核心页面一览</h3>
+  <div class="cards" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="card">
+      <h4>📱 引导 Wizard (3步)</h4>
+      <p>Step 1: 欢迎页 + 权限说明</p>
+      <p>Step 2: 输入 Bot Token (从 @BotFather 获取)</p>
+      <p>Step 3: 绑定管理员 (输入你的 Telegram 账号)</p>
+    </div>
+    <div class="card">
+      <h4>💬 消息管理</h4>
+      <p>会话列表 → 点击进入聊天 → 消息历史 + 快速回复</p>
+      <p>支持文字、文件、图片发送</p>
+    </div>
+    <div class="card">
+      <h4>🤖 自动回复</h4>
+      <p>关键词规则列表 → 添加/编辑规则</p>
+      <p>每个规则: 关键字匹配 + 回复内容 + 启用开关</p>
+    </div>
+    <div class="card">
+      <h4>💻 终端 &amp; 设置</h4>
+      <p>终端: Termux 风格命令行</p>
+      <p>设置: Bot 信息、容器管理、后台保活、主题切换</p>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:24px;">
+  <p class="subtitle">你觉得这个整体设计方向如何？配色、导航结构、页面划分是否满意？</p>
+</div>
