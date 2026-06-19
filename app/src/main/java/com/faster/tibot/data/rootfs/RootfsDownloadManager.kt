@@ -61,6 +61,7 @@ class RootfsDownloadManager(private val context: Context) {
                     }
                 }
             }.awaitAll()
+            .sortedBy { if (it.error != null) Long.MAX_VALUE else it.latencyMs }
         }
     }
 
