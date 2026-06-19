@@ -20,10 +20,21 @@ data class AutoReplyRule(
     val enabled: Boolean,
 )
 
-class AutoReplyEngine(
+class AutoReplyEngine private constructor(
     private val botClient: TelegramBotClient,
     private val context: Context,
 ) {
+    companion object {
+        @Volatile
+        private var INSTANCE: AutoReplyEngine? = null
+
+        fun getInstance(context: Context, botClient: TelegramBotClient): AutoReplyEngine {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: AutoReplyEngine(botClient, context.applicationContext).also { INSTANCE = it }
+            }
+        }
+    }
+
     private object Keys {
         val RULES = stringPreferencesKey("autoreply_rules")
     }
