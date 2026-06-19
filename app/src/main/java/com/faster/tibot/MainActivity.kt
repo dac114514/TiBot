@@ -98,7 +98,15 @@ private fun AppRoot() {
         },
     ) { innerPadding ->
         // Loading/Offline dialogs (shown globally, not tied to any specific screen)
-        LoadingDialog()
+        LoadingDialog(
+            isConfigured = isConfigured,
+            onTimeoutBack = {
+                BotConnectionStore.setStatus(ConnectionStatus.ONLINE) // 清除阻塞状态
+                navController.navigate(Routes.SETTINGS) {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                }
+            },
+        )
         OfflineDialog(
             onExit = { (context as? ComponentActivity)?.finishAffinity() },
             onReconnect = {

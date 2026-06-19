@@ -1,22 +1,36 @@
-## Task 2 Report: Add dependencies (Compose-Bubble + Paho MQTT)
+## Task 2 Report: Python Bridge Bug Fixes (history storage + autoreply/get routing)
 
 **Status:** Complete
+**Commit:** `837d469` - `fix(python): store message history and return on history request`
 
-### Changes Made
+---
 
-1. **`gradle/libs.versions.toml`** -- Added `pahoMqtt = "1.2.5"` version and two Paho library entries (`paho-mqtt-service`, `paho-mqtt-client`).
+### Changes Made to `bridge.py`
 
-2. **`settings.gradle.kts`** -- Added JitPack repository `maven { url = uri("https://jitpack.io") }` to `dependencyResolutionManagement.repositories`.
+1. **Added message history storage (line 20-21):**
+   - `_message_history: dict[int, list[dict]] = {}` -- per-chat message lists keyed by chat_id
+   - `MAX_HISTORY_PER_CHAT = 200` -- cap at 200 most recent messages per chat
 
-3. **`app/build.gradle.kts`** -- Added three new dependencies:
-   - `implementation(libs.paho.mqtt.service)` (Eclipse Paho Android Service)
-   - `implementation(libs.paho.mqtt.client)` (Eclipse Paho MQTT Client)
-   - `implementation("com.github.SmartToolFactory:Compose-Bubble:1.2.0")` (Compose Bubble via JitPack)
+2. **Appending messages to history in `_on_telegram_message` (lines 217-222):**
+   - After updating `_chats`, each incoming message is appended to `_message_history[chat_id]`
+   - Uses `TelegramMessage.to_dict()` for serialization (confirmed present at models.py:33)
+   - Trims to last 200 entries when the list exceeds `MAX_HISTORY_PER_CHAT`
 
-4. **`app/src/main/AndroidManifest.xml`** -- Added permissions (`INTERNET`, `FOREGROUND_SERVICE`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE_DATA_SYNC`) and service declaration for `com.faster.tibot.service.TiBotForegroundService` with `foregroundServiceType="dataSync"`.
+3. **Fixed history handler (lines 193-196):**
+   - Changed `"messages": []` to `"messages": _message_history.get(chat_id, [])`
+   - When Android requests `tibot/chat/history/<chat_id>`, the bridge now returns the actual stored messages instead of an empty array
+
+4. **Verified autoreply/get routing (lines 167-170) -- no changes needed:**
+   - Topic `tibot/autoreply/get` is already handled correctly:
+     - `sub = "autoreply/get"` (after stripping prefix)
+     - `sub.startswith("autoreply/")` matches at line 167
+     - `action = sub.split("/")[-1]` yields `"get"`
+     - Publishes rule list to `tibot/autoreply/list` with `[asdict(r) for r in _autoreply_engine.rules]`
 
 ### Verification
 
-- All files pass basic syntax inspection
-- Version catalog entries follow existing naming conventions
-- Service uses `com.faster.tibot` namespace matching Task 1 rename
+- Python syntax check passed: `py_compile.compile('bridge.py', doraise=True)` returned OK
+- `TelegramMessage.to_dict()` confirmed at `models.py:33`
+- `asdict` import from `dataclasses` is present and used correctly for autoreply rules
+- Diff shows only the intended 3 hunks (+10 lines, -2 lines)
+- No regressions: all existing MQTT command handlers remain unchanged

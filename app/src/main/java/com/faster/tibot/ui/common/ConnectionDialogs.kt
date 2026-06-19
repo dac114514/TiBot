@@ -14,32 +14,57 @@ import com.faster.tibot.data.BotConnectionStore
 import com.faster.tibot.data.ConnectionStatus
 import kotlinx.coroutines.delay
 
-// 启动 Loading Dialog — Bot 上线前显示，不可取消
+// 启动 Loading Dialog — 仅已配置用户可见，30s 无响应可返回向导
 @Composable
-fun LoadingDialog() {
+fun LoadingDialog(
+    isConfigured: Boolean = false,
+    onTimeoutBack: () -> Unit = {},
+) {
     val state by BotConnectionStore.state.collectAsState()
-    val show = state.status == ConnectionStatus.CONNECTING || state.status == ConnectionStatus.OFFLINE
+    val show = isConfigured && (state.status == ConnectionStatus.CONNECTING || state.status == ConnectionStatus.OFFLINE)
+
+    // 30s 超时后可选择返回向导
+    var elapsed by remember(state.status) { mutableStateOf(0) }
+    val timeout = elapsed >= 30
+
+    LaunchedEffect(state.status) {
+        if (state.status == ConnectionStatus.CONNECTING) {
+            elapsed = 0
+            while (elapsed < 30) {
+                delay(1000)
+                elapsed++
+            }
+        }
+    }
 
     if (show) {
         AlertDialog(
             onDismissRequest = { /* 不可取消 */ },
             title = {
-                Text("正在启动 Bot", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text(
+                    if (timeout) "启动超时" else "正在启动 Bot",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             },
             text = {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        strokeWidth = 3.dp,
-                    )
-                    Spacer(Modifier.height(16.dp))
+                    if (!timeout) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(48.dp),
+                            strokeWidth = 3.dp,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                    }
                     Text(
-                        text = when (state.status) {
-                            ConnectionStatus.CONNECTING -> "正在启动容器和Bot…"
-                            ConnectionStatus.OFFLINE -> "正在重新连接…"
+                        text = when {
+                            timeout -> "Bot 未能在 ${timeout}s 内启动，请检查 Token 或网络"
+                            state.status == ConnectionStatus.CONNECTING -> "正在启动容器和Bot…"
+                            state.status == ConnectionStatus.OFFLINE -> "正在重新连接…"
                             else -> state.reason
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -48,7 +73,13 @@ fun LoadingDialog() {
                 }
             },
             confirmButton = {},
-            dismissButton = {},
+            dismissButton = {
+                if (timeout) {
+                    TextButton(onClick = onTimeoutBack) {
+                        Text("返回设置")
+                    }
+                }
+            },
         )
     }
 }
