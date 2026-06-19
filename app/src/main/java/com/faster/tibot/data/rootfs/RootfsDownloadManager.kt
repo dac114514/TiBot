@@ -36,11 +36,11 @@ class RootfsDownloadManager(private val context: Context) {
     // Real Ubuntu base rootfs for ARM64 (24.04 Noble)
     // Official + verified Chinese mirrors
     fun buildMirrors(): List<MirrorSource> = listOf(
-        MirrorSource("ustc",       "中科大镜像",   "https://mirrors.ustc.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"),
-        MirrorSource("tuna",       "清华 TUNA",    "https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"),
-        MirrorSource("aliyun",     "阿里云镜像",    "https://mirrors.aliyun.com/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"),
-        MirrorSource("net163",     "网易 163",     "https://mirrors.163.com/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"),
-        MirrorSource("official",   "Ubuntu 官方",   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"),
+        MirrorSource("ustc",       "中科大镜像",   "https://mirrors.ustc.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
+        MirrorSource("tuna",       "清华 TUNA",    "https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
+        MirrorSource("aliyun",     "阿里云镜像",    "https://mirrors.aliyun.com/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
+        MirrorSource("huawei",     "华为云镜像",    "https://mirrors.huaweicloud.com/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
+        MirrorSource("official",   "Ubuntu 官方",   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
     )
 
     suspend fun speedTest(mirrors: List<MirrorSource>): List<SpeedResult> = withContext(Dispatchers.IO) {
