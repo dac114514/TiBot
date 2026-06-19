@@ -20,6 +20,9 @@ class SettingsRepository(private val context: Context) {
         val BOT_TOKEN = stringPreferencesKey("bot_token")
         val ADMIN_ID = longPreferencesKey("admin_id")
         val IS_CONFIGURED = stringPreferencesKey("is_configured")
+        val BOT_FIRST_NAME = stringPreferencesKey("bot_first_name")
+        val BOT_USERNAME = stringPreferencesKey("bot_username")
+        val UPDATE_OFFSET = longPreferencesKey("update_offset")
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
@@ -32,6 +35,14 @@ class SettingsRepository(private val context: Context) {
 
     val botToken: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[Keys.BOT_TOKEN] ?: ""
+    }
+
+    val botFirstName: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.BOT_FIRST_NAME] ?: ""
+    }
+
+    val botUsername: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[Keys.BOT_USERNAME] ?: ""
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -58,4 +69,19 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun isConfiguredSync(): Boolean = isConfigured.first()
+
+    suspend fun saveBotInfo(firstName: String, username: String) {
+        context.dataStore.edit {
+            it[Keys.BOT_FIRST_NAME] = firstName
+            it[Keys.BOT_USERNAME] = username
+        }
+    }
+
+    suspend fun saveUpdateOffset(offset: Long) {
+        context.dataStore.edit { it[Keys.UPDATE_OFFSET] = offset }
+    }
+
+    suspend fun getUpdateOffset(): Long {
+        return context.dataStore.data.first()[Keys.UPDATE_OFFSET] ?: 0L
+    }
 }
