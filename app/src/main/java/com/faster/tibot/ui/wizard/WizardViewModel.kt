@@ -252,7 +252,6 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
-    }
 
     fun onLaunchGateway() {
         viewModelScope.launch {
