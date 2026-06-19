@@ -91,7 +91,7 @@ fun TerminalScreen() {
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
                     if (input.isNotBlank()) {
-                        history = history + ("$ ${input}" to true) + ("⏳ 执行中..." to false)
+                        history = history + "\$ $input" + "⏳ 执行中..."
                         // TODO: send via MQTT tibot/cmd/exec
                         input = ""
                     }
