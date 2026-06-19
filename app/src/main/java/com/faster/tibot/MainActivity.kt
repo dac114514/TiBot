@@ -58,7 +58,7 @@ private fun AppRoot() {
         if (isConfigured) {
             val token = settingsRepo.botToken.first()
             val botClient = TelegramBotClient(token)
-            val engine = AutoReplyEngine(botClient, context.applicationContext)
+            val engine = AutoReplyEngine.getInstance(context.applicationContext, botClient)
             val pm = PollingManager(botClient, messageStore, engine, settingsRepo)
             pollingManager.value = pm
             pm.start(this)

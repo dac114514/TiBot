@@ -1,161 +1,75 @@
-# Task 1 Report: Python Backend -- Bot Status Reporting + LWT
+# Task 1 Report: RootfsDownloadManager -- speedTest + fixed download
 
 **Status:** DONE
 **Date:** 2026-06-19
-**Commit:** `7ccdf25` on branch `feat/tibot-python-backend`
+**Commit:** `d04e2ab` on branch `main`
 
 ## 1. What Was Implemented
 
-### 1.1 `bot.py` -- Optional `on_ready` callback (lines 47-79)
+### 1.1 MirrorSource.kt -- Added SpeedResult data class
 
-**File:** `app/src/main/assets/proot/rootfs/home/tibot/bot.py`
+**File:** `app/src/main/java/com/faster/tibot/data/rootfs/MirrorSource.kt`
 
-- Added `on_ready=None` as the 3rd parameter to `start_bot()` (line 50).
-- After `app.initialize()`, `app.start()`, and `app.updater.start_polling()` succeed, the callback is invoked (lines 75-76):
-  ```python
-  if on_ready:
-      on_ready()
-  ```
-- Expanded the docstring to document the new parameter (lines 52-57).
-- No changes to the existing `stop_bot()` function.
+- Added `SpeedResult` data class with `mirrorId: String`, `latencyMs: Long`, and optional `error: String?` fields (lines 9-13).
 
-### 1.2 `bridge.py` -- Status publishing on bot ready (lines 238-243)
+### 1.2 RootfsDownloadManager.kt -- Added speedTest()
 
-**File:** `app/src/main/assets/proot/rootfs/home/tibot/bridge.py`
+**File:** `app/src/main/java/com/faster/tibot/data/rootfs/RootfsDownloadManager.kt`
 
-- Added `_on_bot_ready()` function (lines 238-243) that publishes `bot_running: True` to the `tibot/status` topic:
-  ```python
-  def _on_bot_ready() -> None:
-      _publish("tibot/status", {
-          "bot_running": True,
-          "reason": "bot started",
-      })
-  ```
+- Added imports for `kotlinx.coroutines.async` and `kotlinx.coroutines.coroutineScope` (lines 10-11).
+- Added `speedTest()` method (lines 44-65) that concurrently measures mirror latency:
+  - Uses `coroutineScope` + `async` to fire concurrent HEAD requests to all mirrors
+  - Each request has 5s connect and read timeouts
+  - Returns `List<SpeedResult>` with measured RTT or error info
 
-### 1.3 `bridge.py` -- Wired `on_ready` into `run_bridge()` (line 258)
+### 1.3 RootfsDownloadManager.kt -- Fixed download() with stall-based timeout
 
-- Changed the `start_bot()` call to pass `on_ready=_on_bot_ready` (line 258):
-  ```python
-  _bot_app = await start_bot(config, _on_telegram_message, on_ready=_on_bot_ready)
-  ```
+- Replaced `DOWNLOAD_TIMEOUT_MS = 30_000L` with two constants:
+  - `STALL_TIMEOUT_MS = 30_000L` -- triggers only when 30s pass with zero bytes received
+  - `HARD_TIMEOUT_MS = 600_000L` -- 10-minute absolute hard cap
+- Changed `setDestinationUri(Uri.fromFile(destFile))` to `setDestinationInExternalFilesDir(context, null, "rootfs.tar.gz")` to fix Android 10+ `Uri.fromFile` issue
+- Rewrote stall detection:
+  - Replaced poll-count-based `stallCount` variable with timestamp-based `lastProgressTime`
+  - Resets `lastProgressTime` when `bytesDelta > 0`
+  - Triggers stall error when `now - lastProgressTime > STALL_TIMEOUT_MS`
+  - Works correctly from t=0 (previously required `downloaded > 0` to activate)
+- Updated timeout error messages to reference `HARD_TIMEOUT_MS`
+- All STATUS_SUCCESSFUL, STATUS_FAILED, STATUS_RUNNING/PENDING handlers preserved as-is
 
-### 1.4 `bridge.py` -- LWT (last-will-testament) on shutdown (lines 271-275)
+## 2. Self-Review Findings
 
-- Before calling `stop_bot()` in `run_bridge()`, the bridge now publishes `bot_running: False` with reason `"bot shutting down"` (lines 271-275):
-  ```python
-  _publish("tibot/status", {
-      "bot_running": False,
-      "reason": "bot shutting down",
-  })
-  ```
+- `destFile` parameter retained in `download()` signature to avoid breaking callers (`WizardViewModel.kt`). It is still used for `destFile.delete()` in the timeout handler.
+- Stall detection now correctly detects stalls even at 0 bytes received (e.g., connection accepted but never sends data).
+- `setDestinationInExternalFilesDir` returns a `DownloadManager.Request`, so chaining `.setTitle(...)` etc. works correctly.
+- Imports verified: `async`, `coroutineScope`, `withTimeoutOrNull` all present.
 
-### 1.5 `bridge.py` -- `cmd/ping` heartbeat handler (lines 133-137)
+## 3. Concerns
 
-- Added a new `elif sub == "cmd/ping"` branch in `_handle_mqtt_command()` that responds with current bot status (lines 133-137):
-  ```python
-  elif sub == "cmd/ping":
-      _publish("tibot/status", {
-          "bot_running": _bot_app is not None,
-          "reason": "pong",
-      })
-  ```
-
-## 2. Self-Review
-
-### Concerns / Edge Cases Considered
-
-1. **`on_ready` invocation timing:** The callback is called synchronously (not awaited) after all three async initialization steps complete. If the callback were async, it would not be awaited, but the spec specifies a sync callback, so this is correct.
-
-2. **MQTT not yet connected when `_on_bot_ready` fires:** `_mqtt_client.connect_async()` starts the connection loop before `start_bot()` is called. However, the MQTT connection may not be fully established when `_on_bot_ready()` calls `_publish()`. The message will still be queued by paho-mqtt and delivered when the connection completes. This is acceptable because the Android app will resubscribe or poll.
-
-3. **`cmd/ping` publishes to `tibot/status` directly (not via `_make_topic`):** This matches the spec exactly. The Android side subscribes to `tibot/status` and reads the `bot_running` field from the envelope payload.
-
-4. **LWT is best-effort, not MQTT-native:** This is an application-level "last will" -- it publishes before cleanup in the normal shutdown path. If the process is SIGKILLed, the message won't fire. A true MQTT LWT (`will_set`) could be added later for crash detection.
-
-5. **`_bot_app is not None` check in `cmd/ping`:** This correctly handles the edge case where the ping arrives before `_bot_app` has been assigned (e.g., during startup).
-
-6. **Double-checked the `on_ready` callback is defined before use:** `_on_bot_ready` is defined at module level (line 238) before `run_bridge` (line 246), so no forward-reference issues.
-
-7. **No import changes needed:** `bot.py` already imports `TibotConfig` from `models`. `bridge.py` already imports `start_bot` from `bot`. The new code uses only existing imports.
-
-### Things Double-Checked
-
-- The `_publish()` function extracts `msg_type` from the last-but-one topic segment. For `"tibot/status"`, the segments are `["tibot", "status"]` and `parts[-2]` is `"tibot"` -- this is slightly inconsistent with the pattern used elsewhere (e.g., `_make_topic("status", "online")` gives `"tibot/status/online"` where `parts[-2]` is `"status"`). However, the spec explicitly requires `_publish("tibot/status", ...)`, and the `msg_type` field in the envelope is informational metadata -- the Android side reads `payload.bot_running`, not `type`. So this is acceptable.
-
-- The `cmd/ping` handler is placed before `cmd/restart` to avoid accidentally matching `cmd/restart` first (both start with `cmd/`).
-
-## 3. Test Evidence
-
-**Command run from the tibot directory:**
-```
-python -c "import ast; ast.parse(open('bridge.py', encoding='utf-8').read()); ast.parse(open('bot.py', encoding='utf-8').read()); print('Syntax OK')"
-```
-
-**Output:**
-```
-Syntax OK
-```
-
-Both `bot.py` and `bridge.py` parse successfully with no syntax errors.
+- `destFile` parameter is partially vestigial -- kept only for compatibility with `WizardViewModel.kt`. Could be removed when the ViewModel is refactored in subsequent tasks.
+- `destFile.delete()` in the timeout handler still references the now-unused-for-destination `destFile` parameter. In practice, `setDestinationInExternalFilesDir` places the file in a system-managed location, so manual `delete()` may not work as expected.
 
 ## 4. Commits Made
 
 | Commit | Branch | Message |
 |--------|--------|---------|
-| `7ccdf25` | `feat/tibot-python-backend` | `feat(python): add bot status reporting and lwt (last-will-testament) on shutdown` |
+| `d04e2ab` | `main` | `feat: add speedTest and stall-based download timeout to RootfsDownloadManager` |
 
 Files changed:
-- `app/src/main/assets/proot/rootfs/home/tibot/bridge.py` (+27, -2)
-- `app/src/main/assets/proot/rootfs/home/tibot/bot.py` (+6, -2)
+- `app/src/main/java/com/faster/tibot/data/rootfs/MirrorSource.kt` (+6, -0)
+- `app/src/main/java/com/faster/tibot/data/rootfs/RootfsDownloadManager.kt` (+45, -14)
 
-Branch created from `main` (commit `a6d2b02`).
+## 5. Fix Report -- Hard Timeout Cleanup Path (2026-06-19)
 
-## 5. Fix Report -- Task 1 Review Findings (2026-06-19)
+**Commit:** `2d65ace` on branch `main`
 
-### Issue 1 (Important): Unguarded `_on_bot_ready` in bridge.py
+**Issue:** In `RootfsDownloadManager.kt`, the hard timeout handler called `destFile.delete()` when `success == null`. However, the actual download uses `setDestinationInExternalFilesDir(context, null, "rootfs.tar.gz")`, so `destFile` points to the wrong path. On a 10-minute hard timeout, an orphaned `rootfs.tar.gz` is left in the external files directory.
 
-**File:** `app/src/main/assets/proot/rootfs/home/tibot/bridge.py`, lines 238-246
-
-Wrapped the `_publish("tibot/status", ...)` call in `_on_bot_ready()` with try/except + `logger.exception("Failed to publish bot-ready status")`. If the MQTT publish raises (e.g., client not yet connected), the exception is logged instead of crashing `start_bot()` and `run_bridge()` during startup.
-
-Before:
-```
-def _on_bot_ready() -> None:
-    _publish("tibot/status", {
-        "bot_running": True,
-        "reason": "bot started",
-    })
+**Fix:** Replaced `destFile.delete()` (line 210) with:
+```kotlin
+val actualFile = File(context.getExternalFilesDir(null), "rootfs.tar.gz")
+actualFile.delete()
 ```
 
-After:
-```
-def _on_bot_ready() -> None:
-    try:
-        _publish("tibot/status", {
-            "bot_running": True,
-            "reason": "bot started",
-        })
-    except Exception:
-        logger.exception("Failed to publish bot-ready status")
-```
+The `java.io.File` import was already present (line 15), so no additional import was needed.
 
-### Issue 2 (Minor): Docstring in bot.py
-
-**File:** `app/src/main/assets/proot/rootfs/home/tibot/bot.py`, line 57
-
-Changed docstring from "invoked after initialize() succeeds" to "invoked after initialize+start+polling succeed" to accurately reflect the three sequential async steps that complete before the callback fires.
-
-### Issue 3 (Minor): Type hint for `on_ready` in bot.py
-
-**File:** `app/src/main/assets/proot/rootfs/home/tibot/bot.py`, lines 2, 51
-
-- Added `from typing import Optional, Callable` import (line 2).
-- Added type hint `Optional[Callable[[], None]]` to the `on_ready` parameter (line 51): `on_ready: Optional[Callable[[], None]] = None`.
-
-### Test Results
-
-```
-Syntax OK
-```
-
-Both `bridge.py` and `bot.py` parse successfully with no syntax errors after changes.
+**File changed:** `app/src/main/java/com/faster/tibot/data/rootfs/RootfsDownloadManager.kt` (+2, -1)

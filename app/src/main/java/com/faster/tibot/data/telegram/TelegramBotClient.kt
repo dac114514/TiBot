@@ -36,7 +36,7 @@ class TelegramBotClient(private val token: String) {
         try {
             val req = Request.Builder().url("$baseUrl/getMe").get().build()
             val resp = client.newCall(req).execute()
-            val json = JSONObject(resp.body()!!.string())
+            val json = JSONObject(resp.body!!.string())
             if (!json.getBoolean("ok")) return@withContext null
             val user = json.getJSONObject("result")
             BotUser(

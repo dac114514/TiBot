@@ -1,36 +1,70 @@
-## Task 2 Report: Python Bridge Bug Fixes (history storage + autoreply/get routing)
+# Task 2 Report: WizardViewModel — Phase state machine + flow rewrite
 
-**Status:** Complete
-**Commit:** `837d469` - `fix(python): store message history and return on history request`
+## Status: COMPLETE
 
----
+## Summary
+Rewrote `WizardViewModel.kt` with the new Phase-based state machine, speed test flow, download without auto-failover, extract-and-deploy pipeline, and launch gateway.
 
-### Changes Made to `bridge.py`
+## Changes Made
 
-1. **Added message history storage (line 20-21):**
-   - `_message_history: dict[int, list[dict]] = {}` -- per-chat message lists keyed by chat_id
-   - `MAX_HISTORY_PER_CHAT = 200` -- cap at 200 most recent messages per chat
+**File:** `app/src/main/java/com/faster/tibot/ui/wizard/WizardViewModel.kt`
 
-2. **Appending messages to history in `_on_telegram_message` (lines 217-222):**
-   - After updating `_chats`, each incoming message is appended to `_message_history[chat_id]`
-   - Uses `TelegramMessage.to_dict()` for serialization (confirmed present at models.py:33)
-   - Trims to last 200 entries when the list exceeds `MAX_HISTORY_PER_CHAT`
+### Added
+- `Phase` enum: IDLE, SPEED_TEST, READY, DOWNLOADING, EXTRACTING, DEPLOYING, DONE, ERROR
+- `LogLevel` enum: INFO, SUCCESS, ERROR, PROGRESS
+- `LogLine` data class
+- `startSpeedTest()` -- auto-called when advancing to step 3, picks fastest mirror
+- `extractAndDeploy()` -- extracts tar, then calls verifyRootfs()
+- `verifyRootfs()` -- checks bin/sh exists and is executable in extracted rootfs
+- `onLaunchGateway()` -- marks configured and starts foreground service
 
-3. **Fixed history handler (lines 193-196):**
-   - Changed `"messages": []` to `"messages": _message_history.get(chat_id, [])`
-   - When Android requests `tibot/chat/history/<chat_id>`, the bridge now returns the actual stored messages instead of an empty array
+### Modified
+- `WizardState` -- replaced old fields (downloadProgress, triedMirrorIds, deployProgress) with new phase-based fields (phase, phaseSubtitle, progressPercent, downloadedBytes, totalBytes, speedBytesPerSec, logs, error)
+- `WizardState.selectedMirrorId` -- default changed from "github" to "ustc"
+- `WizardState.currentStep` -- comment removed, no hardcoded step-to-phase mapping
+- `nextStep()` -- step==2 now saves token AND calls startSpeedTest() after setting step=3
+- `startDownload()` -- no auto-failover (no recursive mirror switching), user manually retries
+- `rootfsFile` -- changed from `File(app.filesDir, ...)` to `File(app.getExternalFilesDir(null), ...)` (matching Task 1)
 
-4. **Verified autoreply/get routing (lines 167-170) -- no changes needed:**
-   - Topic `tibot/autoreply/get` is already handled correctly:
-     - `sub = "autoreply/get"` (after stripping prefix)
-     - `sub.startswith("autoreply/")` matches at line 167
-     - `action = sub.split("/")[-1]` yields `"get"`
-     - Publishes rule list to `tibot/autoreply/list` with `[asdict(r) for r in _autoreply_engine.rules]`
+### Removed
+- `ProotManager` import and `prootManager` field (no longer used in this ViewModel)
+- Old `startDownload()` with auto-failover logic
+- `verifyAndExtract()` method
+- `deployProgress()` method
+- Old state fields: `downloadProgress`, `triedMirrorIds`, `deployProgress`
 
-### Verification
+### Kept (not removed)
+- `DeployStep` data class (used by WizardScreen.kt, will be removed in Task 4)
+- `DeployStatus` enum (used by WizardScreen.kt, will be removed in Task 4)
+- `DownloadProgress` import (used in download/extract flows)
+- `DownloadState` import (used in download/extract flows)
 
-- Python syntax check passed: `py_compile.compile('bridge.py', doraise=True)` returned OK
-- `TelegramMessage.to_dict()` confirmed at `models.py:33`
-- `asdict` import from `dataclasses` is present and used correctly for autoreply rules
-- Diff shows only the intended 3 hunks (+10 lines, -2 lines)
-- No regressions: all existing MQTT command handlers remain unchanged
+## Verification Checklist
+- [x] Phase/LogLevel/LogLine declared before WizardState (compilation requirement)
+- [x] DeployStep/DeployStatus still present (lines 42-43)
+- [x] rootfsFile uses `getExternalFilesDir(null)` matching Task 1
+- [x] No auto-failover logic in startDownload()
+- [x] No references to triedMirrorIds, verifyAndExtract(), deployProgress()
+- [x] DownloadProgress, DownloadState imports still present
+- [x] ProotManager import removed
+- [x] Speed test auto-runs when entering download step
+- [x] Launch gateway correctly starts TiBotForegroundService
+
+## Commits
+```
+6f97b1e feat: add Phase state machine, speed test flow, launch gateway to WizardViewModel
+18c3095 fix: check setExecutable return value in verifyRootfs
+```
+
+## Post-Review Fix (2026-06-19)
+
+**Issue:** In `verifyRootfs()`, the `else` branch called `sh.setExecutable(true)` but ignored its Boolean return value, then checked `sh.exists()` — which was guaranteed to be `true` since the outer `if` condition `sh.exists() && sh.canExecute()` had already confirmed the file exists. This made the error branch effectively dead code.
+
+**Fix:** Merged `setExecutable` + `exists` check into `else if (sh.setExecutable(true))`, so the error branch is reached when the permission change fails.
+
+**File:** `app/src/main/java/com/faster/tibot/ui/wizard/WizardViewModel.kt` (line 237)
+
+**Commit:** `18c3095`
+
+## Concerns
+- Phase must be declared before WizardState (since WizardState has `val phase: Phase`), which means Phase/LogLevel/LogLine appear before the "existing" DeployStep/DeployStatus declarations rather than after them as the brief states. This is a necessary ordering change for compilation.
