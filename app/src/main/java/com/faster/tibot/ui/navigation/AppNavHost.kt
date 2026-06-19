@@ -27,7 +27,7 @@ fun AppNavHost(
     botOnline: Boolean = false,
 ) {
     val context = LocalContext.current
-    val rootfsDeployed = remember(isConfigured) { ProotManager(context).isRootfsDeployed() }
+    val rootfsDeployed = remember(isConfigured) { ProotManager.getInstance(context).isRootfsDeployed() }
 
     val startDest = when {
         !isConfigured -> Routes.WIZARD

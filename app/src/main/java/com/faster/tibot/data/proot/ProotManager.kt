@@ -9,10 +9,19 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.File
 
-class ProotManager(private val context: Context) {
+class ProotManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "ProotManager"
+
+        @Volatile
+        private var INSTANCE: ProotManager? = null
+
+        fun getInstance(context: Context): ProotManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: ProotManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
     }
 
     private val filesDir get() = context.filesDir
@@ -69,16 +78,21 @@ class ProotManager(private val context: Context) {
         val rootfsDir = File(filesDir, "rootfs")
         // Android 10+ enforces W^X on app data — use linker64 to load the binary
         val linker = "/system/bin/linker64"
-        val cmd = listOf(
+        val cmd = mutableListOf(
             linker, prootBinary.absolutePath,
             "-r", rootfsDir.absolutePath,
             "-w", "/home/tibot",
             "-b", "/dev",
             "-b", "/proc",
             "-b", "/sys",
-            "-b", "/etc/resolv.conf",
-            "/usr/bin/bash", "-c", "cd /home/tibot && bash start.sh"
         )
+        if (File("/etc/resolv.conf").exists()) {
+            cmd.add("-b")
+            cmd.add("/etc/resolv.conf")
+        }
+        cmd.addAll(listOf(
+            "/usr/bin/bash", "-c", "cd /home/tibot && bash start.sh"
+        ))
         Log.i(TAG, "startProot: ${cmd.joinToString(" ")}")
 
         val pb = ProcessBuilder(cmd)

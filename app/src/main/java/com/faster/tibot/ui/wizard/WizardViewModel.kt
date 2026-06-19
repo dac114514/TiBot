@@ -50,7 +50,7 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     private val rootfsDownloadMgr = RootfsDownloadManager(application)
     private val rootfsFile get() = File(app.getExternalFilesDir(null), "rootfs.tar.gz")
     private val rootfsDir get() = File(app.filesDir, "rootfs")
-    val prootManager by lazy { com.faster.tibot.data.proot.ProotManager(app) }
+    val prootManager get() = com.faster.tibot.data.proot.ProotManager.getInstance(app)
 
     val mirrors = rootfsDownloadMgr.buildMirrors()
 
@@ -239,6 +239,7 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                 "usr/bin/proot" to "proot binary",
                 "usr/lib/libtalloc.so.2" to "libtalloc.so.2",
                 "usr/lib/libandroid-shmem.so" to "libandroid-shmem.so",
+                "lib/ld-linux-aarch64.so.1" to "ELF interpreter (ld-linux)",
                 "usr/bin/sh" to "shell (sh)",
                 "usr/bin/bash" to "bash",
                 "home/tibot/start.sh" to "start.sh",
@@ -255,7 +256,10 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
             for ((path, label) in checkItems) {
                 kotlinx.coroutines.delay(150) // visual pacing
                 val f = java.io.File(rootfsDir, path)
-                val ok = f.exists() && f.length() > 0
+                val ok = when (path) {
+                    "usr/bin/sh", "usr/bin/bash" -> f.exists() && f.length() > 0 && f.canExecute()
+                    else -> f.exists() && f.length() > 0
+                }
                 val newLogs = _state.value.logs.toMutableList()
                 val mark = if (ok) "v" else "x"
                 val level = if (ok) LogLevel.SUCCESS else LogLevel.ERROR

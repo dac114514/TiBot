@@ -30,7 +30,7 @@ class TiBotForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        prootManager = ProotManager(applicationContext)
+        prootManager = ProotManager.getInstance(applicationContext)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

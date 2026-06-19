@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
     private val repo = SettingsRepository(application)
-    private val prootManager = ProotManager(application)
+    private val prootManager = ProotManager.getInstance(application)
     private val mqtt = MqttManager.getInstance()
 
     val themeMode: StateFlow<ThemeMode> = repo.themeMode
