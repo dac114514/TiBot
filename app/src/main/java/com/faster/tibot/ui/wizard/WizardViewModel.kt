@@ -50,11 +50,9 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     private val rootfsDownloadMgr = RootfsDownloadManager(application)
     private val rootfsFile get() = File(app.getExternalFilesDir(null), "rootfs.tar.gz")
     private val rootfsDir get() = File(app.filesDir, "rootfs")
-    private val prootManager by lazy { com.faster.tibot.data.proot.ProotManager(app) }
+    val prootManager by lazy { com.faster.tibot.data.proot.ProotManager(app) }
 
     val mirrors = rootfsDownloadMgr.buildMirrors()
-
-    fun getProotManager() = prootManager
 
     fun setToken(token: String) {
         val valid = token.length > 20 && token.contains(":")

@@ -108,7 +108,7 @@ fun WizardScreen(
 
     if (showStartupDialog) {
         StartupTerminalDialog(
-            prootManager = vm.getProotManager(),
+            prootManager = vm.prootManager,
             onSuccess = {
                 showStartupDialog = false
                 onComplete()
