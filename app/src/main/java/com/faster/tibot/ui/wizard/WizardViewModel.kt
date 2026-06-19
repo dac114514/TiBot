@@ -222,7 +222,8 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
 
         withContext(Dispatchers.IO) {
             val sh = File(rootfsDir, "bin/sh")
-            if (sh.exists() && sh.canExecute()) {
+            val shUsr = File(rootfsDir, "usr/bin/sh")
+            if ((sh.exists() && sh.canExecute()) || (shUsr.exists() && shUsr.canExecute())) {
                 val updatedLogs = _state.value.logs.toMutableList()
                 updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
                 _state.value = _state.value.copy(
@@ -231,27 +232,27 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                     progressPercent = 100,
                     logs = updatedLogs,
                 )
-            } else if (sh.setExecutable(true)) {
-                    val updatedLogs = _state.value.logs.toMutableList()
-                    updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
-                    _state.value = _state.value.copy(
-                        phase = Phase.DONE,
-                        phaseSubtitle = "deploy complete",
-                        progressPercent = 100,
-                        logs = updatedLogs,
-                    )
-                } else {
-                    val updatedLogs = _state.value.logs.toMutableList()
-                    updatedLogs += LogLine("x rootfs verification failed: bin/sh not found", LogLevel.ERROR)
-                    _state.value = _state.value.copy(
-                        phase = Phase.ERROR,
-                        phaseSubtitle = "rootfs verification failed",
-                        error = "rootfs verification failed: bin/sh not found",
-                        logs = updatedLogs,
-                    )
-                }
+            } else if (sh.setExecutable(true) || shUsr.setExecutable(true)) {
+                val updatedLogs = _state.value.logs.toMutableList()
+                updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
+                _state.value = _state.value.copy(
+                    phase = Phase.DONE,
+                    phaseSubtitle = "deploy complete",
+                    progressPercent = 100,
+                    logs = updatedLogs,
+                )
+            } else {
+                val updatedLogs = _state.value.logs.toMutableList()
+                updatedLogs += LogLine("x rootfs verification failed: sh not found", LogLevel.ERROR)
+                _state.value = _state.value.copy(
+                    phase = Phase.ERROR,
+                    phaseSubtitle = "rootfs verification failed",
+                    error = "rootfs verification failed: sh not found",
+                    logs = updatedLogs,
+                )
             }
         }
+    }
 
     fun onLaunchGateway() {
         viewModelScope.launch {

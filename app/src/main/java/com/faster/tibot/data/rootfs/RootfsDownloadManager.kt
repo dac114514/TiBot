@@ -288,6 +288,12 @@ class RootfsDownloadManager(private val context: Context) {
                             }
                             if (entry.isDirectory) {
                                 destPath.mkdirs()
+                            } else if (entry.isSymbolicLink) {
+                                destPath.parentFile?.mkdirs()
+                                try {
+                                    android.system.Os.symlink(entry.linkName, destPath.absolutePath)
+                                } catch (_: Exception) {
+                                }
                             } else {
                                 destPath.parentFile?.mkdirs()
                                 FileOutputStream(destPath).use { fos -> tarIn.copyTo(fos) }
