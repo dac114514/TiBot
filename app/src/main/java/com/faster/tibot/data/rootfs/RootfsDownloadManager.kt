@@ -34,14 +34,14 @@ data class DownloadProgress(
 
 class RootfsDownloadManager(private val context: Context) {
 
-    // Real Ubuntu base rootfs for ARM64 (24.04 Noble)
+    // Real Ubuntu base rootfs for ARM64 (22.04 Jammy)
     // Official + verified Chinese mirrors
     fun buildMirrors(): List<MirrorSource> = listOf(
-        MirrorSource("ustc",       "中科大镜像",   "https://mirrors.ustc.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
-        MirrorSource("tuna",       "清华 TUNA",    "https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
-        MirrorSource("aliyun",     "阿里云镜像",    "https://mirrors.aliyun.com/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
-        MirrorSource("huawei",     "华为云镜像",    "https://mirrors.huaweicloud.com/ubuntu-cdimage/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
-        MirrorSource("official",   "Ubuntu 官方",   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-arm64.tar.gz"),
+        MirrorSource("ustc",       "中科大镜像",   "https://mirrors.ustc.edu.cn/ubuntu-cdimage/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-arm64.tar.gz"),
+        MirrorSource("tuna",       "清华 TUNA",    "https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-arm64.tar.gz"),
+        MirrorSource("aliyun",     "阿里云镜像",    "https://mirrors.aliyun.com/ubuntu-cdimage/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-arm64.tar.gz"),
+        MirrorSource("huawei",     "华为云镜像",    "https://mirrors.huaweicloud.com/ubuntu-cdimage/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-arm64.tar.gz"),
+        MirrorSource("official",   "Ubuntu 官方",   "https://cdimage.ubuntu.com/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.5-base-arm64.tar.gz"),
     )
 
     suspend fun speedTest(mirrors: List<MirrorSource>): List<SpeedResult> = withContext(Dispatchers.IO) {
@@ -75,9 +75,9 @@ class RootfsDownloadManager(private val context: Context) {
     // Polling interval for DownloadManager progress
     private val POLL_INTERVAL_MS = 500L
 
-    // Expected: ubuntu-base-24.04.4-base-arm64.tar.gz
-    private val EXPECTED_SIZE = 29_870_567L
-    private val EXPECTED_SHA256 = "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2"
+    // Expected: ubuntu-base-22.04.5-base-arm64.tar.gz
+    private val EXPECTED_SIZE = 27_671_306L
+    private val EXPECTED_SHA256 = "075d4abd2817a5023ab0a82f5cb314c5ec0aa64a9c0b40fd3154ca3bfdae979f"
 
     suspend fun download(
         mirror: MirrorSource,
@@ -473,6 +473,10 @@ class RootfsDownloadManager(private val context: Context) {
             Log.e("RootfsDownloadMgr", "copyAssets: 0 scripts copied")
             return@withContext false
         }
+        // Ensure /tmp exists in rootfs (required by proot guest processes)
+        val tmpDir = File(rootfsDir, "tmp")
+        tmpDir.mkdirs()
+        tmpDir.setWritable(true, false)
         true
     }
 }
