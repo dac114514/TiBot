@@ -22,7 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.first
+import com.faster.tibot.data.autoreply.AutoReplyEngine
 import com.faster.tibot.data.local.SettingsRepository
+import com.faster.tibot.data.message.MessageStore
+import com.faster.tibot.data.telegram.PollingManager
+import com.faster.tibot.data.telegram.TelegramBotClient
 import com.faster.tibot.ui.navigation.AppNavHost
 import com.faster.tibot.ui.navigation.Routes
 import com.faster.tibot.ui.theme.TiBotTheme
@@ -44,6 +49,23 @@ private fun AppRoot() {
     val context = LocalContext.current
     val settingsRepo = remember { SettingsRepository(context.applicationContext) }
     val isConfigured by settingsRepo.isConfigured.collectAsState(initial = false)
+
+    // Create dependencies and start/stop polling
+    val messageStore = remember { MessageStore(context.applicationContext) }
+    val pollingManager = remember { mutableStateOf<PollingManager?>(null) }
+
+    LaunchedEffect(isConfigured) {
+        if (isConfigured) {
+            val token = settingsRepo.botToken.first()
+            val botClient = TelegramBotClient(token)
+            val engine = AutoReplyEngine(botClient, context.applicationContext)
+            val pm = PollingManager(botClient, messageStore, engine, settingsRepo)
+            pollingManager.value = pm
+            pm.start(this)
+        } else {
+            pollingManager.value?.stop()
+        }
+    }
 
     val tabs = listOf(
         TabItem(Routes.CHATS, "消息", Icons.Outlined.Chat, Icons.Filled.Chat),
