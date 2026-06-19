@@ -39,9 +39,6 @@ data class WizardState(
     val error: String? = null,
 )
 
-data class DeployStep(val label: String, val status: DeployStatus)
-enum class DeployStatus { PENDING, IN_PROGRESS, DONE, ERROR }
-
 class WizardViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepo = SettingsRepository(application)
     private val _state = MutableStateFlow(WizardState())

@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,7 +34,7 @@ fun WizardScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         // Progress dots (hidden during deploy simulation)
-        if (state.currentStep < 4) {
+        if (state.currentStep < 3) {
             Row(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
@@ -84,17 +83,22 @@ fun WizardScreen(
                     onBack = { vm.prevStep() },
                 )
                 3 -> DownloadStep(
-                    progress = state.downloadProgress,
+                    phase = state.phase,
+                    subtitle = state.phaseSubtitle,
+                    progressPercent = state.progressPercent,
+                    downloadedBytes = state.downloadedBytes,
+                    totalBytes = state.totalBytes,
+                    speedBytesPerSec = state.speedBytesPerSec,
+                    logs = state.logs,
                     mirrors = vm.mirrors,
                     selectedMirrorId = state.selectedMirrorId,
-                    triedMirrorIds = state.triedMirrorIds,
                     onMirrorSelect = { vm.setMirror(it) },
                     onStartDownload = { vm.startDownload() },
                     onRetry = { vm.startDownload() },
-                )
-                4 -> DeployProgressStep(
-                    steps = state.deployProgress,
-                    onComplete = onComplete,
+                    onLaunch = {
+                        vm.onLaunchGateway()
+                        onComplete()
+                    },
                 )
             }
         }
@@ -434,110 +438,3 @@ private fun AdminStep(
     }
 }
 
-// ── Deploy Progress Step ───────────────────────────────────────
-
-@Composable
-private fun DeployProgressStep(
-    steps: List<DeployStep>,
-    onComplete: () -> Unit,
-) {
-    val allDone = steps.all { it.status == DeployStatus.DONE }
-
-    LaunchedEffect(allDone) {
-        if (allDone) {
-            kotlinx.coroutines.delay(600)
-            onComplete()
-        }
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        // Spinning indicator at top
-        if (!allDone) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp),
-                strokeWidth = 3.dp,
-            )
-            Spacer(Modifier.height(24.dp))
-        } else {
-            Icon(
-                Icons.Filled.CheckCircle,
-                null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp),
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "部署完成",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-
-        Text(
-            if (allDone) "正在跳转..." else "正在部署运行环境，请稍候",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        // Progress step list
-        steps.forEach { step ->
-            DeployStepRow(step)
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun DeployStepRow(step: DeployStep) {
-    val icon = @Composable {
-        when (step.status) {
-            DeployStatus.PENDING -> Icon(
-                Icons.Filled.HourglassTop,
-                null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-            DeployStatus.IN_PROGRESS -> CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-            )
-            DeployStatus.DONE -> Icon(
-                Icons.Filled.CheckCircle,
-                null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-            DeployStatus.ERROR -> Icon(
-                Icons.Filled.Error,
-                null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icon()
-        Spacer(Modifier.width(12.dp))
-        Text(
-            step.label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (step.status == DeployStatus.PENDING) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground,
-            fontWeight = if (step.status == DeployStatus.IN_PROGRESS) FontWeight.Bold else FontWeight.Normal,
-        )
-    }
-}
