@@ -23,6 +23,7 @@ class TiBotForegroundService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var heartbeatJob: Job? = null
     private var startupJob: Job? = null
+    @Volatile
     private var isShuttingDown = false
 
     override fun onCreate() {
@@ -91,7 +92,7 @@ class TiBotForegroundService : Service() {
 
     private suspend fun waitForBotReady(timeoutMs: Long): Boolean {
         val deferred = CompletableDeferred<Boolean>()
-        val collectorJob = CoroutineScope(Dispatchers.IO).launch {
+        val collectorJob = serviceScope.launch(Dispatchers.IO) {
             mqtt.messages.collect { event ->
                 if (event.topic == "tibot/status") {
                     try {
