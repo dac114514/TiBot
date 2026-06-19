@@ -100,6 +100,11 @@ class ProotManager private constructor(private val context: Context) {
         // Create temp directory for proot (overrides hardcoded Termux path)
         val prootTmpDir = File(filesDir, "tmp")
         prootTmpDir.mkdirs()
+        // Proot loader binaries — required for executing guest ELF programs
+        val loaderDir = File(filesDir, "rootfs/usr/libexec/proot")
+        pb.environment()["PROOT_LOADER"] = File(loaderDir, "loader").absolutePath
+        pb.environment()["PROOT_LOADER_32"] = File(loaderDir, "loader32").absolutePath
+
         pb.environment()["PROOT_TMP_DIR"] = prootTmpDir.absolutePath
         pb.environment()["PROOT_NO_SECCOMP"] = "1"
         pb.environment()["PROOT_F2FS_WORKAROUND"] = "1"

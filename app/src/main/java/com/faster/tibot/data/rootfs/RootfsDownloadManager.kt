@@ -446,6 +446,25 @@ class RootfsDownloadManager(private val context: Context) {
             }
         }
 
+        // Copy proot loader binaries (required for executing guest ELF programs)
+        val loaderDir = File(rootfsDir, "usr/libexec/proot")
+        loaderDir.mkdirs()
+        for (loaderName in listOf("loader", "loader32")) {
+            try {
+                context.assets.open("proot/$loaderName").use { input ->
+                    java.io.FileOutputStream(File(loaderDir, loaderName)).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                val loaderFile = File(loaderDir, loaderName)
+                loaderFile.setExecutable(true)
+                Log.d("RootfsDownloadMgr", "copyAssets: copied $loaderName (${loaderFile.length()} bytes)")
+            } catch (e: Exception) {
+                Log.e("RootfsDownloadMgr", "copyAssets: $loaderName copy FAILED: ${e.message}", e)
+                return@withContext false
+            }
+        }
+
         // Copy Python scripts from assets to rootfs/home/tibot/
         val tibotDir = File(rootfsDir, "home/tibot")
         tibotDir.mkdirs()
