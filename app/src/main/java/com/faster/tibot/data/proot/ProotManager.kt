@@ -52,15 +52,15 @@ class ProotManager(private val context: Context) {
             Log.e(TAG, "startProot FAILED: $lastError")
             return@withContext null
         }
-        if (!prootBinary.canExecute() && !prootBinary.setExecutable(true)) {
-            lastError = "proot binary not executable: ${prootBinary.absolutePath}"
-            Log.e(TAG, "startProot FAILED: $lastError")
-            return@withContext null
-        }
+        // Android 10+ noexec filesystem: setExecutable may fail but linker64 handles it
+        prootBinary.setExecutable(true)
+        Log.d(TAG, "proot binary: exists=${prootBinary.exists()}, canExec=${prootBinary.canExecute()}, size=${prootBinary.length()}")
 
         val rootfsDir = File(filesDir, "rootfs")
+        // Android 10+ enforces W^X on app data — use linker64 to load the binary
+        val linker = "/system/bin/linker64"
         val cmd = listOf(
-            prootBinary.absolutePath,
+            linker, prootBinary.absolutePath,
             "-r", rootfsDir.absolutePath,
             "-w", "/home/tibot",
             "-b", "/dev",
