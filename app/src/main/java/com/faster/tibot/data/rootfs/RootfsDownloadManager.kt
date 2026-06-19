@@ -384,4 +384,42 @@ class RootfsDownloadManager(private val context: Context) {
             null
         }
     }
+
+    /**
+     * Copy proot binary and Python scripts from APK assets into the extracted rootfs.
+     * Called after extraction completes, before verification.
+     */
+    suspend fun copyAssets(rootfsDir: File) = withContext(Dispatchers.IO) {
+        // Copy proot binary
+        val prootDest = File(rootfsDir, "usr/bin/proot")
+        prootDest.parentFile?.mkdirs()
+        try {
+            context.assets.open("proot/proot").use { input ->
+                java.io.FileOutputStream(prootDest).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            prootDest.setExecutable(true)
+        } catch (_: Exception) {
+        }
+
+        // Copy Python scripts from assets to rootfs/home/tibot/
+        val tibotDir = File(rootfsDir, "home/tibot")
+        tibotDir.mkdirs()
+        val scriptDir = "proot/rootfs/home/tibot"
+        try {
+            context.assets.list(scriptDir)?.forEach { name ->
+                // Skip subdirectories (like __pycache__)
+                if (name.contains("/")) return@forEach
+                val destFile = File(tibotDir, name)
+                context.assets.open("$scriptDir/$name").use { input ->
+                    java.io.FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                if (name == "start.sh") destFile.setExecutable(true)
+            }
+        } catch (_: Exception) {
+        }
+    }
 }

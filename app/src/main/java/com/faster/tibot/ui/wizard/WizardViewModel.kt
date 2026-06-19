@@ -196,7 +196,8 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
                 DownloadState.DONE -> {
                     val updatedLogs = _state.value.logs.toMutableList()
                     updatedLogs += LogLine("v extraction complete", LogLevel.SUCCESS)
-                    _state.value = _state.value.copy(logs = updatedLogs)
+                    _state.value = _state.value.copy(logs = updatedLogs, phaseSubtitle = "copying assets...")
+                    rootfsDownloadMgr.copyAssets(rootfsDir)
                     verifyRootfs()
                     return@collect
                 }
@@ -222,14 +223,17 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = _state.value.copy(phase = Phase.DEPLOYING, logs = logs)
 
         withContext(Dispatchers.IO) {
-            // Must-exist critical paths (Ubuntu 24.04 usrmerge layout)
+            // Must-exist critical paths (Ubuntu 24.04 usrmerge layout + proot + scripts)
             val checks = listOf(
                 "usr/bin/sh" to "shell",
                 "usr/bin/bash" to "bash",
                 "usr/bin/dpkg" to "dpkg",
+                "usr/bin/proot" to "proot",
                 "etc/apt/sources.list.d/ubuntu.sources" to "apt sources",
                 "etc/os-release" to "os-release",
                 "usr/lib" to "lib dir",
+                "home/tibot/start.sh" to "start.sh",
+                "home/tibot/main.py" to "main.py",
             )
 
             var allOk = true
