@@ -82,9 +82,14 @@ class TiBotForegroundService : Service() {
             val ready = waitForBotReady(30_000L)
             if (!ready) {
                 val isAlive = prootManager.isRunning()
-                val errMsg = if (isAlive) "Bot 启动超时 (60s)" else "proot 进程已退出 (可能是依赖安装失败或 start.sh 报错)"
-                Log.e("TiBotService", "waitForBotReady timeout, process alive=$isAlive")
-                updateNotification("Bot 启动失败: $errMsg")
+                val prootTail = prootManager.getLastOutputLines(8)
+                val errMsg = if (isAlive) {
+                    "Bot 启动超时 (30s) — 进程运行中但未就绪\nproot: $prootTail"
+                } else {
+                    "proot 进程已退出\nproot: $prootTail"
+                }
+                Log.e("TiBotService", "waitForBotReady timeout, alive=$isAlive, proot=$prootTail")
+                updateNotification("Bot 启动失败")
                 BotConnectionStore.setStatus(ConnectionStatus.TIMEOUT, errMsg)
                 return@launch
             }

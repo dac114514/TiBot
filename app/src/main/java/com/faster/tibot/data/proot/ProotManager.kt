@@ -19,6 +19,13 @@ class ProotManager(private val context: Context) {
     private var process: Process? = null
     private var restartCount = 0
     val maxRestarts = 3
+
+    /** Last N lines of proot stdout, accessible for diagnostics */
+    private val outputBuffer = ArrayDeque<String>(50)
+    fun getLastOutput(): String = outputBuffer.joinToString("\n")
+    fun getLastOutputLines(count: Int = 10): String =
+        outputBuffer.takeLast(count).joinToString("\n")
+
     var lastError: String = ""
         private set
 
@@ -82,13 +89,15 @@ class ProotManager(private val context: Context) {
             restartCount = 0
             Log.i(TAG, "startProot OK: process started")
 
-            // Log stdout/stderr in background
+            // Log stdout/stderr in background + accumulate for diagnostics
             Thread({
                 try {
                     p.inputStream.bufferedReader().use { reader ->
                         var line = reader.readLine()
                         while (line != null) {
                             Log.d(TAG, "[proot] $line")
+                            outputBuffer.addLast(line)
+                            if (outputBuffer.size > 50) outputBuffer.removeFirst()
                             line = reader.readLine()
                         }
                     }
