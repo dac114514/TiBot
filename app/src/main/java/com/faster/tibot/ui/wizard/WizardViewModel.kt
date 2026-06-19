@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
-import com.faster.tibot.data.proot.ProotManager
 import com.faster.tibot.data.rootfs.DownloadProgress
 import com.faster.tibot.data.rootfs.DownloadState
 import com.faster.tibot.data.rootfs.RootfsDownloadManager
@@ -15,16 +14,29 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+enum class Phase {
+    IDLE, SPEED_TEST, READY, DOWNLOADING, EXTRACTING, DEPLOYING, DONE, ERROR
+}
+
+enum class LogLevel { INFO, SUCCESS, ERROR, PROGRESS }
+
+data class LogLine(val text: String, val level: LogLevel)
+
 data class WizardState(
-    val currentStep: Int = 0,  // 0=welcome, 1=token, 2=admin, 3=download, 4=deploying
+    val currentStep: Int = 0,
     val botToken: String = "",
     val tokenValid: Boolean = false,
     val adminId: String = "",
     val adminIdValid: Boolean = false,
-    val downloadProgress: DownloadProgress = DownloadProgress(),
-    val selectedMirrorId: String = "github",
-    val triedMirrorIds: List<String> = emptyList(),
-    val deployProgress: List<DeployStep> = emptyList(),
+    val phase: Phase = Phase.IDLE,
+    val phaseSubtitle: String = "",
+    val progressPercent: Int = 0,
+    val downloadedBytes: Long = 0,
+    val totalBytes: Long = 0,
+    val speedBytesPerSec: Long = 0,
+    val logs: List<LogLine> = emptyList(),
+    val selectedMirrorId: String = "ustc",
+    val error: String? = null,
 )
 
 data class DeployStep(val label: String, val status: DeployStatus)
@@ -32,13 +44,12 @@ enum class DeployStatus { PENDING, IN_PROGRESS, DONE, ERROR }
 
 class WizardViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepo = SettingsRepository(application)
-    private val prootManager = ProotManager(application)
     private val _state = MutableStateFlow(WizardState())
     val state = _state.asStateFlow()
 
     private val app = application
     private val rootfsDownloadMgr = RootfsDownloadManager(application)
-    private val rootfsFile get() = File(app.filesDir, "rootfs.tar.gz")
+    private val rootfsFile get() = File(app.getExternalFilesDir(null), "rootfs.tar.gz")
     private val rootfsDir get() = File(app.filesDir, "rootfs")
 
     val mirrors = rootfsDownloadMgr.buildMirrors()
@@ -60,17 +71,14 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     fun nextStep() {
         val step = _state.value.currentStep
         if (step == 2) {
-            // Admin done -> save token (not configured yet, rootfs not deployed)
             viewModelScope.launch {
                 settingsRepo.saveTokenOnly(
                     token = _state.value.botToken,
                     adminId = _state.value.adminId.toLong(),
                 )
                 _state.value = _state.value.copy(currentStep = 3)
+                startSpeedTest()
             }
-        } else if (step == 3) {
-            // Download step: triggered by DownloadStep button (startDownload)
-            // No auto-advance here
         } else {
             _state.value = _state.value.copy(currentStep = step + 1)
         }
@@ -81,98 +89,181 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
         if (step > 0) _state.value = _state.value.copy(currentStep = step - 1)
     }
 
+    private suspend fun startSpeedTest() {
+        _state.value = _state.value.copy(phase = Phase.SPEED_TEST, phaseSubtitle = "testing speed...")
+
+        val logs = mutableListOf<LogLine>()
+        logs += LogLine("$ ./speedtest", LogLevel.INFO)
+        _state.value = _state.value.copy(logs = logs.toList())
+
+        val results = rootfsDownloadMgr.speedTest(mirrors)
+
+        results.forEach { result ->
+            val mirror = mirrors.find { it.id == result.mirrorId }
+            val name = mirror?.name ?: result.mirrorId
+            if (result.error != null) {
+                logs += LogLine("x $name: ${result.error}", LogLevel.ERROR)
+            } else {
+                logs += LogLine("  $name: ${result.latencyMs}ms", LogLevel.INFO)
+            }
+            _state.value = _state.value.copy(logs = logs.toList())
+        }
+
+        val working = results.filter { it.error == null }
+        if (working.isEmpty()) {
+            logs += LogLine("x all mirrors unreachable", LogLevel.ERROR)
+            _state.value = _state.value.copy(
+                phase = Phase.ERROR,
+                phaseSubtitle = "all mirrors unreachable",
+                error = "all mirrors unreachable",
+                logs = logs.toList(),
+            )
+            return
+        }
+
+        val fastest = working.first()
+        val fastestMirror = mirrors.find { it.id == fastest.mirrorId }!!
+        logs += LogLine("v fastest: ${fastestMirror.name} (${fastest.latencyMs}ms)", LogLevel.SUCCESS)
+
+        _state.value = _state.value.copy(
+            phase = Phase.READY,
+            phaseSubtitle = "fastest: ${fastestMirror.name} (${fastest.latencyMs}ms)",
+            selectedMirrorId = fastest.mirrorId,
+            logs = logs.toList(),
+        )
+    }
+
     fun startDownload() {
         val mirror = mirrors.find { it.id == _state.value.selectedMirrorId } ?: return
         viewModelScope.launch {
+            val logs = _state.value.logs.toMutableList()
+            logs += LogLine("$ wget ${mirror.url}", LogLevel.INFO)
+            logs += LogLine("  downloading...", LogLevel.INFO)
+            _state.value = _state.value.copy(phase = Phase.DOWNLOADING, phaseSubtitle = "downloading...", logs = logs)
+
             rootfsDownloadMgr.download(mirror, rootfsFile).collect { progress ->
-                _state.value = _state.value.copy(downloadProgress = progress)
-                if (progress.state == DownloadState.ERROR) {
-                    val tried = _state.value.triedMirrorIds + mirror.id
-                    val nextMirror = mirrors.firstOrNull { it.id !in tried }
-                    if (nextMirror != null) {
+                when (progress.state) {
+                    DownloadState.DOWNLOADING -> {
                         _state.value = _state.value.copy(
-                            selectedMirrorId = nextMirror.id,
-                            triedMirrorIds = tried,
+                            phase = Phase.DOWNLOADING,
+                            progressPercent = progress.percent,
+                            downloadedBytes = progress.downloadedBytes,
+                            totalBytes = progress.totalBytes,
+                            speedBytesPerSec = progress.speedBytesPerSec,
                         )
-                        startDownload()
+                    }
+                    DownloadState.DONE -> {
+                        val updatedLogs = _state.value.logs.toMutableList()
+                        updatedLogs += LogLine("v download complete (${progress.downloadedBytes / 1024 / 1024}MB)", LogLevel.SUCCESS)
+                        _state.value = _state.value.copy(
+                            progressPercent = 100,
+                            downloadedBytes = progress.downloadedBytes,
+                            totalBytes = progress.totalBytes,
+                            logs = updatedLogs,
+                        )
+                        extractAndDeploy()
                         return@collect
                     }
-                    _state.value = _state.value.copy(triedMirrorIds = tried)
-                }
-                if (progress.state == DownloadState.DONE) {
-                    verifyAndExtract()
+                    DownloadState.ERROR -> {
+                        val updatedLogs = _state.value.logs.toMutableList()
+                        updatedLogs += LogLine("x ${progress.error ?: "download failed"}", LogLevel.ERROR)
+                        _state.value = _state.value.copy(
+                            phase = Phase.ERROR,
+                            phaseSubtitle = progress.error ?: "download failed",
+                            error = progress.error,
+                            logs = updatedLogs,
+                        )
+                        return@collect
+                    }
+                    else -> {}
                 }
             }
         }
     }
 
-    private suspend fun verifyAndExtract() {
-        _state.value = _state.value.copy(
-            downloadProgress = DownloadProgress(state = DownloadState.EXTRACTING, percent = 100)
-        )
+    private suspend fun extractAndDeploy() {
+        val logs = _state.value.logs.toMutableList()
+        logs += LogLine("$ tar -xzf rootfs.tar.gz", LogLevel.INFO)
+        logs += LogLine("  extracting...", LogLevel.INFO)
+        _state.value = _state.value.copy(phase = Phase.EXTRACTING, phaseSubtitle = "deploying...", logs = logs)
 
         rootfsDownloadMgr.extractTar(rootfsFile, rootfsDir).collect { progress ->
-            _state.value = _state.value.copy(downloadProgress = progress)
-            if (progress.state == DownloadState.DONE) {
-                // Move to deploy progress step
-                _state.value = _state.value.copy(
-                    currentStep = 4,
-                    deployProgress = listOf(
-                        DeployStep("Ubuntu rootfs 已部署", DeployStatus.DONE),
-                        DeployStep("准备启动容器", DeployStatus.PENDING),
-                    ),
-                )
-                deployProgress()
-            } else if (progress.state == DownloadState.ERROR) {
-                // Extraction error — re-emit to UI
-                _state.value = _state.value.copy(downloadProgress = progress)
+            when (progress.state) {
+                DownloadState.EXTRACTING -> {
+                    _state.value = _state.value.copy(
+                        phase = Phase.EXTRACTING,
+                        progressPercent = progress.percent,
+                    )
+                }
+                DownloadState.DONE -> {
+                    val updatedLogs = _state.value.logs.toMutableList()
+                    updatedLogs += LogLine("v extraction complete", LogLevel.SUCCESS)
+                    _state.value = _state.value.copy(logs = updatedLogs)
+                    verifyRootfs()
+                    return@collect
+                }
+                DownloadState.ERROR -> {
+                    val updatedLogs = _state.value.logs.toMutableList()
+                    updatedLogs += LogLine("x ${progress.error ?: "extraction failed"}", LogLevel.ERROR)
+                    _state.value = _state.value.copy(
+                        phase = Phase.ERROR,
+                        phaseSubtitle = progress.error ?: "extraction failed",
+                        error = progress.error,
+                        logs = updatedLogs,
+                    )
+                    return@collect
+                }
+                else -> {}
             }
         }
     }
 
-    private suspend fun deployProgress() {
-        val initialSteps = _state.value.deployProgress.toMutableList()
+    private suspend fun verifyRootfs() {
+        val logs = _state.value.logs.toMutableList()
+        logs += LogLine("$ verify rootfs", LogLevel.INFO)
+        _state.value = _state.value.copy(phase = Phase.DEPLOYING, logs = logs)
 
-        try {
-            // Step 0: Ubuntu rootfs already extracted (mark DONE)
-            if (initialSteps.isNotEmpty()) {
-                initialSteps[0] = initialSteps[0].copy(status = DeployStatus.DONE)
-                _state.value = _state.value.copy(deployProgress = initialSteps)
+        withContext(Dispatchers.IO) {
+            val sh = File(rootfsDir, "bin/sh")
+            if (sh.exists() && sh.canExecute()) {
+                val updatedLogs = _state.value.logs.toMutableList()
+                updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
+                _state.value = _state.value.copy(
+                    phase = Phase.DONE,
+                    phaseSubtitle = "deploy complete",
+                    progressPercent = 100,
+                    logs = updatedLogs,
+                )
+            } else {
+                sh.setExecutable(true)
+                if (sh.exists()) {
+                    val updatedLogs = _state.value.logs.toMutableList()
+                    updatedLogs += LogLine("v rootfs verified", LogLevel.SUCCESS)
+                    _state.value = _state.value.copy(
+                        phase = Phase.DONE,
+                        phaseSubtitle = "deploy complete",
+                        progressPercent = 100,
+                        logs = updatedLogs,
+                    )
+                } else {
+                    val updatedLogs = _state.value.logs.toMutableList()
+                    updatedLogs += LogLine("x rootfs verification failed: bin/sh not found", LogLevel.ERROR)
+                    _state.value = _state.value.copy(
+                        phase = Phase.ERROR,
+                        phaseSubtitle = "rootfs verification failed",
+                        error = "rootfs verification failed: bin/sh not found",
+                        logs = updatedLogs,
+                    )
+                }
             }
+        }
+    }
 
-            // Step 1: Run prootManager.deployRootfs to set up proot binary + environment
-            if (initialSteps.size > 1) {
-                initialSteps[1] = initialSteps[1].copy(status = DeployStatus.IN_PROGRESS)
-                _state.value = _state.value.copy(deployProgress = initialSteps)
-            }
-            prootManager.deployRootfs()
-            if (initialSteps.size > 1) {
-                initialSteps[1] = initialSteps[1].copy(status = DeployStatus.DONE)
-                _state.value = _state.value.copy(deployProgress = initialSteps)
-            }
-
-            // Step 2: Start Mosquitto
-            val stepMosq = DeployStep("启动 Mosquitto", DeployStatus.DONE)
-            _state.value = _state.value.copy(
-                deployProgress = _state.value.deployProgress + stepMosq
-            )
-
-            // Step 3: Start bot bridge
-            val stepBot = DeployStep("启动 Bot 桥接层", DeployStatus.DONE)
-            _state.value = _state.value.copy(
-                deployProgress = _state.value.deployProgress + stepBot
-            )
-
-            // All deploy steps DONE — now mark as fully configured
+    fun onLaunchGateway() {
+        viewModelScope.launch {
             settingsRepo.markConfigured()
-        } catch (e: Exception) {
-            // Mark any pending or in-progress steps as ERROR
-            val errorSteps = _state.value.deployProgress.map { step ->
-                if (step.status == DeployStatus.PENDING || step.status == DeployStatus.IN_PROGRESS) {
-                    step.copy(status = DeployStatus.ERROR)
-                } else step
-            }
-            _state.value = _state.value.copy(deployProgress = errorSteps)
+            val intent = android.content.Intent(app, com.faster.tibot.service.TiBotForegroundService::class.java)
+            app.startForegroundService(intent)
         }
     }
 }
