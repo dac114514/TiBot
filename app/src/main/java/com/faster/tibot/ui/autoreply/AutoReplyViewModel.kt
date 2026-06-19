@@ -18,13 +18,13 @@ data class AutoReplyRuleUi(
 )
 
 class AutoReplyViewModel(application: Application) : AndroidViewModel(application) {
-    private val mqtt = MqttManager.getInstance(application)
+    private val mqtt = MqttManager.getInstance()
 
     private val _rules = MutableStateFlow(listOf<AutoReplyRuleUi>())
     val rules = _rules.asStateFlow()
 
     init {
-        mqtt.connect()
+        viewModelScope.launch { mqtt.connect() }
 
         // Subscribe to rule list updates
         mqtt.subscribe("tibot/autoreply/list")

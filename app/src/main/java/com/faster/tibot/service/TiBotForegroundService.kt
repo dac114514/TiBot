@@ -33,7 +33,7 @@ class TiBotForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        MqttManager.getInstance(applicationContext).disconnect()
+        MqttManager.getInstance().disconnect()
         super.onDestroy()
     }
 

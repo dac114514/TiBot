@@ -72,7 +72,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.paho.mqtt.service)
     implementation(libs.paho.mqtt.client)
     debugImplementation(libs.androidx.ui.tooling)
 }

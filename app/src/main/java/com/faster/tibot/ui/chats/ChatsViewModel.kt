@@ -32,7 +32,7 @@ data class ChatMessage(
 )
 
 class ChatsViewModel(application: Application) : AndroidViewModel(application) {
-    private val mqtt = MqttManager.getInstance(application)
+    private val mqtt = MqttManager.getInstance()
 
     private val _chats = MutableStateFlow(listOf<ChatSummary>())
     val chats = _chats.asStateFlow()
