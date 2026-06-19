@@ -54,7 +54,7 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
             botClient = if (token.isNotBlank()) TelegramBotClient(token) else null
         }
         viewModelScope.launch {
-            messageStore.getAllChatsFlow().collect { list ->
+            messageStore.getAllChatsFlow().collect { list: List<com.faster.tibot.data.message.ChatSummary> ->
                 _chats.value = list.map { cs ->
                     ChatSummary(
                         chatId = cs.chatId,

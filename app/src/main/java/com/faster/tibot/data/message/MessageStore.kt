@@ -1,11 +1,13 @@
 package com.faster.tibot.data.message
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.faster.tibot.data.telegram.TelegramMessage
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -98,7 +100,7 @@ class MessageStore(private val context: Context) {
         }
     }
 
-    fun getAllChatsFlow() = context.messageDataStore.data.map { prefs ->
+    fun getAllChatsFlow() = context.messageDataStore.data.map { prefs: Preferences ->
         val json = prefs[Keys.CHAT_LIST] ?: "[]"
         val arr = JSONArray(json)
         val chats = mutableListOf<ChatSummary>()
