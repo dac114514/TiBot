@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -26,7 +27,7 @@ class AutoReplyEngine:
 
     def _save(self) -> None:
         Path(RULES_FILE).write_text(
-            json.dumps([r.__dict__ for r in self._rules], indent=2)
+            json.dumps([asdict(r) for r in self._rules], indent=2)
         )
 
     @property

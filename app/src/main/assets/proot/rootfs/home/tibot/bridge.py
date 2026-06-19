@@ -2,10 +2,12 @@ import asyncio
 import json
 import logging
 import signal
+from dataclasses import asdict
 
 import paho.mqtt.client as mqtt
 import yaml
 
+from autoreply import AutoReplyEngine
 from models import TibotConfig, TibotEnvelope, TelegramMessage, AutoReplyRule
 from bot import start_bot, stop_bot
 
@@ -14,11 +16,10 @@ MQTT_TOPIC_PREFIX = "tibot"
 
 # In-memory stores
 _chats: dict[int, dict] = {}
-_autoreply_rules: list[AutoReplyRule] = []
+_autoreply_engine = AutoReplyEngine()
 _bot_app = None
 _mqtt_client = None
 _config: TibotConfig = None
-_lock = asyncio.Lock()
 
 
 def load_config(path: str = "config.yaml") -> TibotConfig:
@@ -85,7 +86,6 @@ def _on_message(_client, _userdata, msg: mqtt.MQTTMessage) -> None:
 
 
 async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
-    global _autoreply_rules
 
     # Extract the sub-topic after "tibot/"
     sub = topic.replace(f"{MQTT_TOPIC_PREFIX}/", "", 1)
@@ -136,30 +136,24 @@ async def _handle_mqtt_command(topic: str, env: TibotEnvelope) -> None:
             })
 
     elif sub.startswith("autoreply/"):
-        async with _lock:
-            action = sub.split("/")[-1]
-            if action == "get":
-                _publish(_make_topic("autoreply", "list"), {
-                    "rules": [r.__dict__ for r in _autoreply_rules],
-                })
-            elif action == "set":
-                rule = AutoReplyRule(**env.payload)
-                # Replace existing or append
-                for i, r in enumerate(_autoreply_rules):
-                    if r.rule_id == rule.rule_id:
-                        _autoreply_rules[i] = rule
-                        break
-                else:
-                    _autoreply_rules.append(rule)
-                _publish(_make_topic("autoreply", "list"), {
-                    "rules": [r.__dict__ for r in _autoreply_rules],
-                })
-            elif action == "delete":
-                rule_id = env.payload.get("rule_id", "")
-                _autoreply_rules = [r for r in _autoreply_rules if r.rule_id != rule_id]
-                _publish(_make_topic("autoreply", "list"), {
-                    "rules": [r.__dict__ for r in _autoreply_rules],
-                })
+        action = sub.split("/")[-1]
+        if action == "get":
+            _publish(_make_topic("autoreply", "list"), {
+                "rules": [asdict(r) for r in _autoreply_engine.rules],
+            })
+        elif action == "set":
+            rule = AutoReplyRule(**env.payload)
+            if not _autoreply_engine.update_rule(rule):
+                _autoreply_engine.add_rule(rule)
+            _publish(_make_topic("autoreply", "list"), {
+                "rules": [asdict(r) for r in _autoreply_engine.rules],
+            })
+        elif action == "delete":
+            rule_id = env.payload.get("rule_id", "")
+            _autoreply_engine.delete_rule(rule_id)
+            _publish(_make_topic("autoreply", "list"), {
+                "rules": [asdict(r) for r in _autoreply_engine.rules],
+            })
 
     elif sub.startswith("chat/"):
         rest = sub[len("chat/"):]
@@ -193,15 +187,14 @@ async def _on_telegram_message(msg: TelegramMessage) -> None:
     }
 
     # Check auto-reply first
-    async with _lock:
-        for rule in _autoreply_rules:
-            if rule.matches(msg.text or ""):
-                if _bot_app:
-                    await _bot_app.bot.send_message(
-                        chat_id=msg.chat_id, text=rule.reply,
-                        reply_to_message_id=msg.message_id,
-                    )
-                return  # Auto-reply matched, don't forward to Android
+    reply = _autoreply_engine.check(msg)
+    if reply:
+        if _bot_app:
+            await _bot_app.bot.send_message(
+                chat_id=msg.chat_id, text=reply,
+                reply_to_message_id=msg.message_id,
+            )
+        return  # Auto-reply matched, don't forward to Android
 
     # Forward to Android
     _publish(_make_topic("msg", "in", str(msg.chat_id)), msg.to_dict())
@@ -244,16 +237,3 @@ async def run_bridge(config: TibotConfig) -> None:
     await stop_bot(_bot_app)
     _mqtt_client.loop_stop()
     _mqtt_client.disconnect()
-
-
-def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-    config = load_config()
-    asyncio.run(run_bridge(config))
-
-
-if __name__ == "__main__":
-    main()
