@@ -63,14 +63,17 @@ private fun TextContent(message: ChatMessage) {
         )
     }
     if (message.time.isNotEmpty()) {
-        Text(
-            text = message.time,
-            style = MaterialTheme.typography.labelSmall,
-            color = timeColor,
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(top = 2.dp, start = 8.dp),
-        )
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.End,
+        ) {
+            Text(
+                text = message.time,
+                style = MaterialTheme.typography.labelSmall,
+                color = timeColor,
+                modifier = Modifier.padding(top = 2.dp, start = 8.dp),
+            )
+        }
     }
 }
 

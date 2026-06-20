@@ -132,59 +132,50 @@ private fun BubbleShell(
 @Composable
 private fun BubbleStatus(message: ChatMessage, onRetry: () -> Unit) {
     if (!message.isOutgoing) return
-    when (message.status) {
-        "sending" -> Row(
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(end = 4.dp, top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(10.dp),
-                strokeWidth = 1.dp,
-                color = LocalContentColor.current.copy(alpha = 0.6f),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "发送中",
-                style = MaterialTheme.typography.labelSmall,
-            )
-        }
-        "sent" -> Text(
-            text = "✓",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(end = 4.dp, top = 2.dp),
-        )
-        "read" -> Text(
-            text = "✓✓",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(end = 4.dp, top = 2.dp),
-        )
-        "failed" -> Row(
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(end = 4.dp, top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "⚠ 发送失败",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-            TextButton(
-                onClick = onRetry,
-                modifier = Modifier.height(24.dp),
-            ) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 4.dp, top = 2.dp),
+        contentAlignment = Alignment.End,
+    ) {
+        when (message.status) {
+            "sending" -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(10.dp),
+                    strokeWidth = 1.dp,
+                    color = LocalContentColor.current.copy(alpha = 0.6f),
+                )
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = "重试",
+                    text = "发送中",
                     style = MaterialTheme.typography.labelSmall,
                 )
+            }
+            "sent" -> Text(
+                text = "✓",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            "read" -> Text(
+                text = "✓✓",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            "failed" -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "⚠ 发送失败",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                TextButton(
+                    onClick = onRetry,
+                    modifier = Modifier.height(24.dp),
+                ) {
+                    Text(
+                        text = "重试",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
         }
     }
