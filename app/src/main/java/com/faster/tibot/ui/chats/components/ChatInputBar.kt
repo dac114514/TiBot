@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,7 +72,7 @@ fun ChatInputBar(
         tonalElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .imePadding(),
+            .navigationBarsPadding(),
     ) {
         Row(
             modifier = Modifier

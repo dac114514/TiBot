@@ -42,7 +42,7 @@ fun VoiceRecorderSheet(
     onDismiss: () -> Unit,
     onSendVoice: (filePath: String) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var isRecording by remember { mutableStateOf(false) }
     var durationSeconds by remember { mutableLongStateOf(0L) }
