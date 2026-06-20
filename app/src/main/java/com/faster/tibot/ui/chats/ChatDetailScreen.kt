@@ -58,8 +58,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.ImageRequest
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.faster.tibot.util.FileUtils
 import kotlinx.coroutines.launch
 import java.io.File

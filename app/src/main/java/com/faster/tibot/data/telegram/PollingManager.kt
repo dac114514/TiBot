@@ -53,8 +53,9 @@ class PollingManager(
                             autoReplyEngine.processMessage(msg)
                             if (msg.fileId.isNotBlank()) {
                                 val deferred = fileDownloader.ensureDownloaded(msg, scope)
-                                deferred.invokeOnCompletion { result ->
-                                    val path = result.getOrNull() ?: return@invokeOnCompletion
+                                deferred.invokeOnCompletion {
+                                    if (deferred.isCancelled) return@invokeOnCompletion
+                                    val path = runCatching { deferred.getCompleted() }.getOrNull() ?: return@invokeOnCompletion
                                     if (path != "too_large" && path.isNotBlank()) {
                                         scope.launch {
                                             messageStore.updateLocalFilePath(msg.chatId, msg.messageId, path)

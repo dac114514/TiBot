@@ -16,7 +16,7 @@ import com.faster.tibot.data.telegram.BotState
 import com.faster.tibot.data.telegram.FileDownloader
 import com.faster.tibot.data.telegram.PollingManager
 import com.faster.tibot.data.telegram.TelegramBotClient
-import com.faster.tibot.service.NotificationFactory.Companion.NOTIF_ID
+import com.faster.tibot.service.NotificationFactory
 import com.faster.tibot.util.FileUtils
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -107,8 +107,9 @@ class BotForegroundService : Service() {
             val downloader = fileDownloader ?: return@launch
             pending.forEach { msg ->
                 val deferred = downloader.ensureDownloaded(msg, this) ?: return@forEach
-                deferred.invokeOnCompletion { r ->
-                    val path = r.getOrNull() ?: return@invokeOnCompletion
+                deferred.invokeOnCompletion {
+                    if (deferred.isCancelled) return@invokeOnCompletion
+                    val path = runCatching { deferred.getCompleted() }.getOrNull() ?: return@invokeOnCompletion
                     if (path != "too_large" && path.isNotBlank()) {
                         serviceScope?.launch {
                             store.updateLocalFilePath(msg.chatId, msg.messageId, path)

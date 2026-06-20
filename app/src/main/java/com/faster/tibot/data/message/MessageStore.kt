@@ -2,6 +2,7 @@ package com.faster.tibot.data.message
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -87,7 +88,7 @@ class MessageStore(private val context: Context) {
         }
     }
 
-    private fun updateChatSummary(prefs: Preferences, msg: TelegramMessage, messageCount: Int) {
+    private fun updateChatSummary(prefs: MutablePreferences, msg: TelegramMessage, messageCount: Int) {
         val chatListStr = prefs[Keys.CHAT_LIST] ?: "[]"
         val chatListArr = try {
             JSONArray(chatListStr)
