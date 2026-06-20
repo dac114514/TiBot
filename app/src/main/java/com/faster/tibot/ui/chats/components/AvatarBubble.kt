@@ -32,6 +32,7 @@ fun TgAvatar(
     modifier: Modifier = Modifier,
     size: Dp = 54.dp,
     fontSize: TextUnit = 22.sp,
+    imagePath: String? = null,
 ) {
     val (start, end) = avatarGradient(chatId)
     val displayLabel = if (label.isBlank()) "?" else label.take(2).uppercase()

@@ -182,9 +182,9 @@ class TelegramBotClient(private val token: String) {
         val chatType = chat?.optString("type", "private") ?: "private"
         val messageId = json.optLong("message_id", 0)
         val chatId = chat?.optLong("id", 0) ?: 0L
-        val chatTitle = chat?.optString("title")
-            ?: chat?.optString("first_name")
-            ?: chat?.optString("username")
+        val chatTitle = chat?.optString("title")?.takeIf { it.isNotEmpty() }
+            ?: chat?.optString("first_name")?.takeIf { it.isNotEmpty() }
+            ?: chat?.optString("username")?.takeIf { it.isNotEmpty() }
             ?: ""
         val text = json.optString("text").takeIf { it.isNotBlank() }
             ?: json.optString("caption").takeIf { it.isNotBlank() }
