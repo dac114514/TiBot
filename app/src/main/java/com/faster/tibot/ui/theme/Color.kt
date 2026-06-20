@@ -1,5 +1,6 @@
 package com.faster.tibot.ui.theme
 
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 // ===== Dark Mode (Telegram official) =====
@@ -51,3 +52,61 @@ fun avatarGradient(chatId: Long): Pair<Color, Color> {
     val pair = TgAvatarGradients[(chatId.toInt() and 0x7FFFFFFF) % TgAvatarGradients.size]
     return pair[0] to pair[1]
 }
+
+data class TgBubbleColors(
+    val chatBackground: Color,
+    val outgoingBubble: Color,
+    val outgoingText: Color,
+    val outgoingTime: Color,
+    val incomingBubble: Color,
+    val incomingText: Color,
+    val incomingTime: Color,
+    val incomingBorder: Color,
+    val systemMessage: Color,
+    val systemText: Color,
+    val blockedText: Color,
+)
+
+val LocalTgBubbleColors = compositionLocalOf {
+    TgBubbleColors(
+        chatBackground = TgLightChatBg,
+        outgoingBubble = TgLightOutgoingBubble,
+        outgoingText = TgLightPrimaryText,
+        outgoingTime = Color(0xFF6FAB73),
+        incomingBubble = TgLightIncomingBubble,
+        incomingText = TgLightPrimaryText,
+        incomingTime = TgLightSecondaryText,
+        incomingBorder = Color(0xFFE0E0E0),
+        systemMessage = Color.Transparent,
+        systemText = TgLightSecondaryText,
+        blockedText = TgLightSecondaryText,
+    )
+}
+
+val TgLightBubbleColors = TgBubbleColors(
+    chatBackground = TgLightChatBg,
+    outgoingBubble = TgLightOutgoingBubble,
+    outgoingText = TgLightPrimaryText,
+    outgoingTime = Color(0xFF6FAB73),
+    incomingBubble = TgLightIncomingBubble,
+    incomingText = TgLightPrimaryText,
+    incomingTime = TgLightSecondaryText,
+    incomingBorder = Color(0xFFE0E0E0),
+    systemMessage = Color.Transparent,
+    systemText = TgLightSecondaryText,
+    blockedText = TgLightSecondaryText,
+)
+
+val TgDarkBubbleColors = TgBubbleColors(
+    chatBackground = TgDarkChatBg,
+    outgoingBubble = TgDarkOutgoingBubble,
+    outgoingText = TgDarkPrimaryText,
+    outgoingTime = Color(0xFF6FA4C8),
+    incomingBubble = TgDarkIncomingBubble,
+    incomingText = TgDarkPrimaryText,
+    incomingTime = TgDarkSecondaryText,
+    incomingBorder = TgDarkIncomingBorder,
+    systemMessage = Color.Transparent,
+    systemText = TgDarkSecondaryText,
+    blockedText = TgDarkSecondaryText,
+)
