@@ -11,8 +11,8 @@ android {
         applicationId = "com.faster.tibot"
         minSdk = 24
         targetSdk = 36
-        versionCode = 36
-        versionName = "2.2.1"
+        versionCode = 37
+        versionName = "2.2.2"
 
         vectorDrawables {
             useSupportLibrary = true
