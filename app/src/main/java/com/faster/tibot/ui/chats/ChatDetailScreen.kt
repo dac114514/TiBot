@@ -284,6 +284,18 @@ private fun MessageBubble(
                         )
                         Spacer(Modifier.height(2.dp))
                     }
+                    if (message.isOutgoing && message.isAutoReply) {
+                        Row(
+                            modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "🤖 自动回复",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.85f),
+                            )
+                        }
+                    }
                     when (message.mediaType) {
                         "photo" -> PhotoContent(message)
                         "video", "video_note", "animation" -> VideoCard(message)
