@@ -21,6 +21,7 @@ data class TelegramMessage(
     val mediaType: String = "text",
     val localFilePath: String = "",
     val ruleId: String = "",
+    val replyToMessageId: Long = 0L,
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
@@ -42,6 +43,7 @@ data class TelegramMessage(
             put("mediaType", mediaType)
             put("localFilePath", localFilePath)
             put("ruleId", ruleId)
+            put("replyToMessageId", replyToMessageId)
         }
     }
 
@@ -66,6 +68,7 @@ data class TelegramMessage(
                 mediaType = o.optString("mediaType", "text"),
                 localFilePath = o.optString("localFilePath", ""),
                 ruleId = o.optString("ruleId", ""),
+                replyToMessageId = o.optLong("replyToMessageId", 0L),
             )
         }
     }

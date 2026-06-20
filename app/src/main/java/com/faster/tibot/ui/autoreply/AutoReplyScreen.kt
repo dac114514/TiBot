@@ -21,16 +21,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -93,6 +96,7 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
     var editingRule by remember { mutableStateOf<AutoReplyRuleUi?>(null) }
     var deletingRule by remember { mutableStateOf<AutoReplyRuleUi?>(null) }
     var showTestDialog by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
     val filteredRules = if (searchQuery.text.isBlank()) {
         rules
@@ -169,6 +173,51 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
                             contentDescription = "测试规则",
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
+                    }
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "更多",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("全部启用") },
+                                onClick = {
+                                    menuExpanded = false
+                                    vm.enableAll()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("全部禁用") },
+                                onClick = {
+                                    menuExpanded = false
+                                    vm.disableAll()
+                                },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("导入规则") },
+                                onClick = { menuExpanded = false },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("导出规则") },
+                                onClick = { menuExpanded = false },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("清空全部规则") },
+                                onClick = {
+                                    menuExpanded = false
+                                    vm.clearAllRules()
+                                },
+                            )
+                        }
                     }
                 },
             )

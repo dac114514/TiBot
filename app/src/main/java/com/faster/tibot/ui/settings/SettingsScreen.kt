@@ -1,6 +1,5 @@
 package com.faster.tibot.ui.settings
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -36,13 +35,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.faster.tibot.BuildConfig
 import com.faster.tibot.data.local.ThemeMode
 import com.faster.tibot.ui.settings.components.AdminManager
+import com.faster.tibot.ui.settings.components.BotDetailsDialog
 import com.faster.tibot.ui.settings.components.BotInfoCard
 import com.faster.tibot.ui.settings.components.SettingsRow
 import com.faster.tibot.ui.settings.components.SettingsSection
@@ -50,7 +49,6 @@ import com.faster.tibot.ui.settings.components.ToggleRow
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
-    val context = LocalContext.current
     val themeMode by vm.themeMode.collectAsState()
     val accessMode by vm.accessMode.collectAsState()
     val adminIds by vm.adminIds.collectAsState()
@@ -63,6 +61,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccessModeDialog by remember { mutableStateOf(false) }
     var tokenVisible by remember { mutableStateOf(false) }
+    var showBotDetails by remember { mutableStateOf(false) }
 
     if (showThemeDialog) {
         ThemeModeDialog(
@@ -97,10 +96,16 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
         BotInfoCard(
             botInfo = botInfo,
             uptimeSeconds = uptimeSeconds,
-            onDetailsClick = {
-                Toast.makeText(context, "Bot 详情 TODO", Toast.LENGTH_SHORT).show()
-            },
+            onDetailsClick = { showBotDetails = true },
         )
+
+        if (showBotDetails) {
+            BotDetailsDialog(
+                botInfo = botInfo,
+                uptimeSeconds = uptimeSeconds,
+                onDismiss = { showBotDetails = false },
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 

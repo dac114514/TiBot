@@ -43,18 +43,19 @@ class PollingManager(
                         val msg = update.message ?: continue
 
                         val mode = settingsRepo.accessMode.first()
-                        val admin = settingsRepo.adminId.first()
-                        val authorized = isAuthorized(msg, mode, admin)
+                        val admins = settingsRepo.adminIds.first()
+                        val authorized = isAuthorized(msg, mode, admins)
+                        val isAdminOfThisChat = authorized && admins.contains(msg.fromId)
                         val botId = BotState.info.value.botId
 
                         // 防御性：bot 自己的消息通过 getUpdates 收到时，标记为 outgoing 并跳过 autoReply
                         if (botId != 0L && msg.fromId == botId) {
-                            messageStore.saveMessage(msg.copy(isOutgoing = true))
+                            messageStore.saveMessage(msg.copy(isOutgoing = true), isAdminOfThisChat)
                             continue
                         }
 
                         val toSave = if (authorized) msg else msg.copy(isBlocked = true)
-                        messageStore.saveMessage(toSave)
+                        messageStore.saveMessage(toSave, isAdminOfThisChat)
 
                         if (authorized) {
                             autoReplyEngine.processMessage(msg)
@@ -89,15 +90,15 @@ class PollingManager(
         job = null
     }
 
-    private fun isAuthorized(msg: TelegramMessage, accessMode: String, adminId: Long): Boolean {
+    private fun isAuthorized(msg: TelegramMessage, accessMode: String, adminIds: List<Long>): Boolean {
         if (accessMode == "all") return true
-        if (adminId == 0L) return false
+        if (adminIds.isEmpty() || adminIds.all { it == 0L }) return false
 
         val fromId = msg.fromId
         return when (msg.chatType) {
-            "private" -> fromId == adminId
+            "private" -> fromId in adminIds
             "channel" -> true
-            "group", "supergroup" -> fromId == adminId
+            "group", "supergroup" -> fromId in adminIds
             else -> false
         }
     }

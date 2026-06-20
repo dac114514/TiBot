@@ -17,11 +17,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,54 +44,99 @@ fun MessageBubble(
     previousMessage: ChatMessage? = null,
     onRetry: () -> Unit = {},
     onLongPress: (ChatMessage) -> Unit = {},
+    onMenuAction: (ChatMessage, String) -> Unit = { _, _ -> },
 ) {
     val isMine = message.isOutgoing
     val arrangement = if (isMine) Arrangement.End else Arrangement.Start
+    var showMenu by remember { mutableStateOf(false) }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 1.dp),
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    showMenu = true
+                    onLongPress(message)
+                },
+            ),
     ) {
-        if (shouldShowDateSeparator(message, previousMessage)) {
-            DateSeparator(epochSeconds = message.date)
-            Spacer(Modifier.height(4.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 1.dp),
+        ) {
+            if (shouldShowDateSeparator(message, previousMessage)) {
+                DateSeparator(epochSeconds = message.date)
+                Spacer(Modifier.height(4.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = arrangement,
+            ) {
+                Column(
+                    modifier = Modifier.widthIn(max = 280.dp),
+                ) {
+                    if (message.isAutoReply) {
+                        AutoReplyBadge()
+                    }
+
+                    if (!message.isOutgoing &&
+                        (message.chatType == "group" || message.chatType == "supergroup") &&
+                        message.senderName.isNotEmpty()) {
+                        Text(
+                            text = message.senderName,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 12.dp, bottom = 2.dp),
+                        )
+                    }
+
+                    BubbleShell(message = message) {
+                        MessageContent(message = message)
+                    }
+
+                    BubbleStatus(message = message, onRetry = onRetry)
+                }
+            }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = arrangement,
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
         ) {
-            Column(
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = { onLongPress(message) },
-                    ),
-            ) {
-                if (message.isAutoReply) {
-                    AutoReplyBadge()
-                }
-
-                if (!message.isOutgoing &&
-                    (message.chatType == "group" || message.chatType == "supergroup") &&
-                    message.senderName.isNotEmpty()) {
-                    Text(
-                        text = message.senderName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 12.dp, bottom = 2.dp),
-                    )
-                }
-
-                BubbleShell(message = message) {
-                    MessageContent(message = message)
-                }
-
-                BubbleStatus(message = message, onRetry = onRetry)
+            DropdownMenuItem(
+                text = { Text("复制") },
+                onClick = {
+                    showMenu = false
+                    onMenuAction(message, "copy")
+                },
+            )
+            if (!message.isOutgoing) {
+                DropdownMenuItem(
+                    text = { Text("回复") },
+                    onClick = {
+                        showMenu = false
+                        onMenuAction(message, "reply")
+                    },
+                )
             }
+            DropdownMenuItem(
+                text = { Text("转发") },
+                onClick = {
+                    showMenu = false
+                    onMenuAction(message, "forward")
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("删除") },
+                onClick = {
+                    showMenu = false
+                    onMenuAction(message, "delete")
+                },
+            )
         }
     }
 }

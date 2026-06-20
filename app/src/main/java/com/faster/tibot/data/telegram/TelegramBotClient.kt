@@ -115,11 +115,18 @@ class TelegramBotClient(private val token: String) {
         } catch (_: Exception) { false }
     }
 
-    suspend fun sendMessage(chatId: Long, text: String): Result<Long?> = withContext(Dispatchers.IO) {
+    suspend fun sendMessage(
+        chatId: Long,
+        text: String,
+        replyToMessageId: Long? = null,
+    ): Result<Long?> = withContext(Dispatchers.IO) {
         runCatching {
             val body = JSONObject().apply {
                 put("chat_id", chatId)
                 put("text", text)
+                if (replyToMessageId != null && replyToMessageId > 0L) {
+                    put("reply_to_message_id", replyToMessageId)
+                }
             }
             val req = Request.Builder().url("$baseUrl/sendMessage")
                 .post(body.toString().toRequestBody(jsonMedia)).build()
@@ -132,26 +139,6 @@ class TelegramBotClient(private val token: String) {
             }
         }
     }
-
-    suspend fun sendMessage(chatId: Long, text: String, replyTo: Long): Result<Long?> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val body = JSONObject().apply {
-                    put("chat_id", chatId)
-                    put("text", text)
-                    put("reply_to_message_id", replyTo)
-                }
-                val req = Request.Builder().url("$baseUrl/sendMessage")
-                    .post(body.toString().toRequestBody(jsonMedia)).build()
-                client.newCall(req).execute().use { res ->
-                    if (!res.isSuccessful) error("HTTP ${res.code}")
-                    val bodyText = res.body?.string().orEmpty()
-                    val json = JSONObject(bodyText)
-                    if (!json.optBoolean("ok", false)) error("sendMessage failed: $bodyText")
-                    json.getJSONObject("result").optLong("message_id")
-                }
-            }
-        }
 
     suspend fun sendDocument(
         chatId: Long,

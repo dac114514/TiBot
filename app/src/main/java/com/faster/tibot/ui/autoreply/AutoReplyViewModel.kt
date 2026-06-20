@@ -81,6 +81,27 @@ class AutoReplyViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun enableAll() {
+        _rules.value = _rules.value.map { it.copy(enabled = true) }
+        viewModelScope.launch {
+            engine?.saveRules(_rules.value.map { it.toEngine() })
+        }
+    }
+
+    fun disableAll() {
+        _rules.value = _rules.value.map { it.copy(enabled = false) }
+        viewModelScope.launch {
+            engine?.saveRules(_rules.value.map { it.toEngine() })
+        }
+    }
+
+    fun clearAllRules() {
+        _rules.value = emptyList()
+        viewModelScope.launch {
+            engine?.saveRules(emptyList())
+        }
+    }
+
     fun moveRule(fromIndex: Int, toIndex: Int) {
         val list = _rules.value.toMutableList()
         if (fromIndex < 0 || fromIndex >= list.size || toIndex < 0 || toIndex >= list.size) return

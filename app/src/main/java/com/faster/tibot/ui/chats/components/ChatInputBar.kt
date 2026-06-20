@@ -62,6 +62,9 @@ fun ChatInputBar(
         }
     }
 
+    var showEmojiSheet by remember { mutableStateOf(false) }
+    var showVoiceSheet by remember { mutableStateOf(false) }
+
     val canSend = text.isNotBlank()
 
     Surface(
@@ -110,11 +113,14 @@ fun ChatInputBar(
                 BasicTextField(
                     value = text,
                     onValueChange = { text = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 24.dp, max = 100.dp),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface,
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    singleLine = false,
                     maxLines = 4,
                 )
             }
@@ -135,7 +141,10 @@ fun ChatInputBar(
                 }
             } else {
                 IconButton(
-                    onClick = onEmojiClick,
+                    onClick = {
+                        onEmojiClick()
+                        showEmojiSheet = true
+                    },
                     modifier = Modifier.size(40.dp),
                 ) {
                     Icon(
@@ -145,7 +154,10 @@ fun ChatInputBar(
                     )
                 }
                 IconButton(
-                    onClick = onVoiceClick,
+                    onClick = {
+                        onVoiceClick()
+                        showVoiceSheet = true
+                    },
                     modifier = Modifier.size(40.dp),
                 ) {
                     Icon(
@@ -156,5 +168,23 @@ fun ChatInputBar(
                 }
             }
         }
+    }
+
+    if (showEmojiSheet) {
+        EmojiPickerSheet(
+            onDismiss = { showEmojiSheet = false },
+            onEmojiSelected = { emoji ->
+                text = text + emoji
+            },
+        )
+    }
+
+    if (showVoiceSheet) {
+        VoiceRecorderSheet(
+            onDismiss = { showVoiceSheet = false },
+            onSendVoice = { _ ->
+                showVoiceSheet = false
+            },
+        )
     }
 }

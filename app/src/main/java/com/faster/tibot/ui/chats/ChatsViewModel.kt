@@ -41,6 +41,7 @@ data class ChatMessage(
     val fileName: String = "",
     val mimeType: String = "",
     val chatType: String = "private",
+    val replyToMessageId: Long = 0L,
 )
 
 class ChatsViewModel(application: Application) : AndroidViewModel(application) {
@@ -66,6 +67,9 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _activeChatId = MutableStateFlow<Long?>(null)
     val activeChatId = _activeChatId.asStateFlow()
+
+    private val _replyToMessage = MutableStateFlow<ChatMessage?>(null)
+    val replyToMessage: StateFlow<ChatMessage?> = _replyToMessage.asStateFlow()
 
     private var messagesJob: Job? = null
 
@@ -227,6 +231,61 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
         sendFile(chatId, message.localFilePath, caption, replaceLocalId = message.id)
     }
 
+    fun setReplyTo(message: ChatMessage?) {
+        _replyToMessage.value = message
+    }
+
+    fun sendReply(replyToMessageId: Long, text: String) {
+        val chatId = _activeChatId.value ?: return
+        val client = _botClient.value ?: return
+
+        if (text.isBlank()) return
+
+        val tempId = "local_reply_${System.currentTimeMillis()}_${Random.nextInt()}"
+        val pendingMsg = ChatMessage(
+            id = tempId,
+            chatId = chatId,
+            text = text,
+            isOutgoing = true,
+            senderName = "我",
+            time = currentTime(),
+            status = "sending",
+            mediaType = "text",
+            replyToMessageId = replyToMessageId,
+        )
+        _messages.value = _messages.value + pendingMsg
+
+        viewModelScope.launch {
+            val result = client.sendMessage(chatId, text, replyToMessageId)
+            result.fold(
+                onSuccess = { serverId ->
+                    val chatTitle = chats.value.find { it.chatId == chatId }?.chatTitle ?: ""
+                    val sentMsg = TelegramMessage(
+                        messageId = serverId ?: -Random.nextLong(1, Long.MAX_VALUE),
+                        chatId = chatId,
+                        chatTitle = chatTitle,
+                        text = text,
+                        fromName = "我",
+                        date = System.currentTimeMillis() / 1000,
+                        isOutgoing = true,
+                        mediaType = "text",
+                        replyToMessageId = replyToMessageId,
+                    )
+                    messageStore.saveMessage(sentMsg)
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == tempId) m.copy(id = "msg_${sentMsg.messageId}", status = "sent") else m
+                    }
+                    _replyToMessage.value = null
+                },
+                onFailure = { _ ->
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == tempId) m.copy(status = "failed") else m
+                    }
+                },
+            )
+        }
+    }
+
     fun refreshChats() {
         // No-op: chats are now reactive via stateIn(getAllChatsFlow).
     }
@@ -257,4 +316,5 @@ private fun TelegramMessage.toUi(): ChatMessage = ChatMessage(
     fileName = fileName,
     mimeType = mimeType,
     chatType = chatType,
+    replyToMessageId = replyToMessageId,
 )
