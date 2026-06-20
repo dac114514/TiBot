@@ -3,6 +3,7 @@ package com.faster.tibot.ui.chats.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -65,7 +66,7 @@ private fun TextContent(message: ChatMessage) {
     if (message.time.isNotEmpty()) {
         Box(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.End,
+            contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
                 text = message.time,

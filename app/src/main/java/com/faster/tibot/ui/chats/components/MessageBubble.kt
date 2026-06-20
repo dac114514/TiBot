@@ -136,7 +136,7 @@ private fun BubbleStatus(message: ChatMessage, onRetry: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(end = 4.dp, top = 2.dp),
-        contentAlignment = Alignment.End,
+        contentAlignment = Alignment.CenterEnd,
     ) {
         when (message.status) {
             "sending" -> Row(verticalAlignment = Alignment.CenterVertically) {
