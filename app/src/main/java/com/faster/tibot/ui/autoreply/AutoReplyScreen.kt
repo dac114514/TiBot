@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,11 +59,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-// Match type badge colors
-private val MatchTypeBlue = Color(0xFF3390ec)
-private val MatchTypeGreen = Color(0xFF2ecc71)
-private val MatchTypeOrange = Color(0xFFf39c12)
-private val MatchTypePurple = Color(0xFF9b59b6)
+@Composable
+private fun matchTypeColor(matchType: String): Color = when (matchType) {
+    "exact" -> MaterialTheme.colorScheme.primary
+    "contains" -> MaterialTheme.colorScheme.tertiary
+    "regex" -> MaterialTheme.colorScheme.secondary
+    "command" -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.primary
+}
 
 private fun matchTypeLabel(matchType: String): String = when (matchType) {
     "exact" -> "精确匹配"
@@ -70,14 +74,6 @@ private fun matchTypeLabel(matchType: String): String = when (matchType) {
     "regex" -> "正则匹配"
     "command" -> "命令匹配"
     else -> matchType
-}
-
-private fun matchTypeColor(matchType: String): Color = when (matchType) {
-    "exact" -> MatchTypeBlue
-    "contains" -> MatchTypeGreen
-    "regex" -> MatchTypeOrange
-    "command" -> MatchTypePurple
-    else -> MatchTypeBlue
 }
 
 private fun matchTypeEmoji(matchType: String): String = when (matchType) {
@@ -96,18 +92,14 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AutoReplyRuleUi?>(null) }
     var deletingRule by remember { mutableStateOf<AutoReplyRuleUi?>(null) }
+    var showTestDialog by remember { mutableStateOf(false) }
 
-    // Filter rules by keyword
-    val filteredRules = remember(rules, searchQuery.text) {
-        val query = searchQuery.text.trim()
-        if (query.isEmpty()) {
-            rules
-        } else {
-            rules.filter { it.keyword.contains(query, ignoreCase = true) }
-        }
+    val filteredRules = if (searchQuery.text.isBlank()) {
+        rules
+    } else {
+        rules.filter { it.keyword.contains(searchQuery.text, ignoreCase = true) }
     }
 
-    // Add rule dialog
     if (showAddDialog) {
         RuleEditDialog(
             title = "添加规则",
@@ -122,7 +114,6 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
         )
     }
 
-    // Edit rule dialog
     editingRule?.let { rule ->
         RuleEditDialog(
             title = "编辑规则",
@@ -138,16 +129,29 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
         )
     }
 
-    // Delete confirm dialog
     deletingRule?.let { rule ->
-        DeleteConfirmDialog(
-            rule = rule,
-            onConfirm = {
-                vm.deleteRule(rule.ruleId)
-                deletingRule = null
+        AlertDialog(
+            onDismissRequest = { deletingRule = null },
+            title = { Text("确认删除", fontWeight = FontWeight.Bold) },
+            text = { Text("确定要删除规则「${rule.keyword}」吗？此操作不可撤销。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.deleteRule(rule.ruleId)
+                        deletingRule = null
+                    },
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
             },
-            onDismiss = { deletingRule = null },
+            dismissButton = {
+                TextButton(onClick = { deletingRule = null }) { Text("取消") }
+            },
         )
+    }
+
+    if (showTestDialog) {
+        TestRuleDialog(vm = vm, onDismiss = { showTestDialog = false })
     }
 
     Scaffold(
@@ -159,14 +163,23 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
+                    IconButton(onClick = { showTestDialog = true }) {
                         Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "添加规则",
-                            tint = MaterialTheme.colorScheme.primary,
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "测试规则",
+                            tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 },
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text("添加") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -179,7 +192,6 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Search bar
             SearchBar(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },
@@ -188,19 +200,10 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
             Spacer(Modifier.height(12.dp))
 
             if (filteredRules.isEmpty()) {
-                // Empty state
-                EmptyState(
-                    hasSearch = searchQuery.text.isNotBlank(),
-                )
+                EmptyState(hasSearch = searchQuery.text.isNotBlank())
             } else {
-                // Rule list
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(
-                        items = filteredRules,
-                        key = { it.ruleId },
-                    ) { rule ->
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(filteredRules, key = { it.ruleId }) { rule ->
                         RuleCard(
                             rule = rule,
                             onClick = { editingRule = rule },
@@ -208,7 +211,6 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
                             onDelete = { deletingRule = rule },
                         )
                     }
-                    // Bottom spacer for FAB area
                     item { Spacer(Modifier.height(80.dp)) }
                 }
             }
@@ -266,17 +268,11 @@ private fun RuleCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Emoji icon
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (rule.enabled)
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    ),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -287,7 +283,6 @@ private fun RuleCard(
 
             Spacer(Modifier.width(12.dp))
 
-            // Content
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -303,7 +298,6 @@ private fun RuleCard(
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     Spacer(Modifier.width(6.dp))
-                    // Match type badge
                     MatchTypeBadge(matchType = rule.matchType)
                 }
                 Spacer(Modifier.height(4.dp))
@@ -317,15 +311,21 @@ private fun RuleCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (rule.hitCount > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "命中 ${rule.hitCount} 次",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
-            // Toggle switch
             Switch(
                 checked = rule.enabled,
                 onCheckedChange = { onToggle() },
                 modifier = Modifier.padding(start = 4.dp),
             )
-            // Delete button
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.size(32.dp),
@@ -333,7 +333,7 @@ private fun RuleCard(
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "删除规则",
-                    tint = Color(0xFFe74c3c).copy(alpha = 0.5f),
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -357,6 +357,82 @@ private fun MatchTypeBadge(matchType: String) {
             color = bgColor,
             fontSize = 11.sp,
         )
+    }
+}
+
+@Composable
+private fun TestRuleDialog(vm: AutoReplyViewModel, onDismiss: () -> Unit) {
+    val input by vm.testInput.collectAsState()
+    val result by vm.testResult.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("测试规则匹配", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { vm.setTestInput(it) },
+                    label = { Text("模拟消息") },
+                    placeholder = { Text("输入要测试的消息内容") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                    minLines = 2,
+                    maxLines = 4,
+                )
+                Spacer(Modifier.height(8.dp))
+                result?.let { r ->
+                    if (r.matched) {
+                        Text(
+                            text = "✅ 匹配: ${r.reply}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        Text(
+                            text = "❌ 无规则匹配",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { vm.testRules() }) { Text("测试") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
+}
+
+@Composable
+private fun EmptyState(hasSearch: Boolean) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = if (hasSearch) Icons.Filled.SearchOff else Icons.Filled.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = if (hasSearch) "没有匹配的规则" else "暂无自动回复规则",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (hasSearch) "试试其他关键词" else "点击右下角 + 添加新规则",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            )
+        }
     }
 }
 
@@ -386,9 +462,7 @@ private fun RuleEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = title, fontWeight = FontWeight.Bold)
-        },
+        title = { Text(title, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 OutlinedTextField(
@@ -412,7 +486,6 @@ private fun RuleEditDialog(
                     shape = RoundedCornerShape(8.dp),
                 )
                 Spacer(Modifier.height(12.dp))
-                // Match type dropdown
                 ExposedDropdownMenuBox(
                     expanded = dropdownExpanded,
                     onExpandedChange = { dropdownExpanded = it },
@@ -422,7 +495,9 @@ private fun RuleEditDialog(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("匹配类型") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(),
@@ -456,13 +531,11 @@ private fun RuleEditDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    onConfirm(keyword.text.trim(), reply.text.trim(), selectedMatchType)
-                },
+                onClick = { onConfirm(keyword.text.trim(), reply.text.trim(), selectedMatchType) },
                 enabled = isValid,
             ) {
                 Text(
-                    text = "保存",
+                    "保存",
                     color = if (isValid)
                         MaterialTheme.colorScheme.primary
                     else
@@ -471,72 +544,7 @@ private fun RuleEditDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+            TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
-}
-
-@Composable
-private fun DeleteConfirmDialog(
-    rule: AutoReplyRuleUi,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("确认删除", fontWeight = FontWeight.Bold)
-        },
-        text = {
-            Text("确定要删除规则「${rule.keyword}」吗？此操作不可撤销。")
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = "删除",
-                    color = Color(0xFFe74c3c),
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        },
-    )
-}
-
-@Composable
-private fun EmptyState(hasSearch: Boolean) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                imageVector = if (hasSearch) Icons.Filled.SearchOff else Icons.Filled.Search,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = if (hasSearch) "没有匹配的规则" else "暂无自动回复规则",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = if (hasSearch) "试试其他关键词" else "点击右上角 + 添加新规则",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-            )
-        }
-    }
 }
