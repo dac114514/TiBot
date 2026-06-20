@@ -28,6 +28,9 @@ data class ChatSummary(
     val lastMessageTime: String,
     val messageCount: Int,
     val avatarLetter: Char,
+    val lastSender: String = "",
+    val lastOutgoing: Boolean = false,
+    val lastIsAutoReply: Boolean = false,
 ) {
     val title: String get() = chatTitle
 }
@@ -129,11 +132,13 @@ class MessageStore(private val context: Context) {
         return JSONObject().apply {
             put("chatId", msg.chatId)
             put("chatTitle", title)
-            put("lastMessage", msg.text)
+            put("lastMessage", msg.text.take(80))
             put("lastTime", msg.date)
-            put("lastMessageTime", formatTime(msg.date))
             put("messageCount", messageCount)
-            put("avatarLetter", title.firstOrNull() ?: '?')
+            put("avatarLetter", title.firstOrNull()?.uppercaseChar() ?: '?')
+            put("lastSender", msg.fromName.take(40))
+            put("lastOutgoing", msg.isOutgoing)
+            put("lastIsAutoReply", msg.isAutoReply)
         }
     }
 
@@ -227,11 +232,13 @@ class MessageStore(private val context: Context) {
                     chatTitle = title,
                     lastMessage = obj.optString("lastMessage", ""),
                     lastTime = lastTime,
-                    lastMessageTime = obj.optString("lastMessageTime", "")
-                        .ifBlank { formatTime(lastTime) },
+                    lastMessageTime = formatTime(lastTime),
                     messageCount = obj.optInt("messageCount", 0),
-                    avatarLetter = obj.optString("avatarLetter", "")
+                    avatarLetter = obj.optString("avatarLetter", "?")
                         .firstOrNull() ?: title.firstOrNull() ?: '?',
+                    lastSender = obj.optString("lastSender", ""),
+                    lastOutgoing = obj.optBoolean("lastOutgoing", false),
+                    lastIsAutoReply = obj.optBoolean("lastIsAutoReply", false),
                 )
             )
         }

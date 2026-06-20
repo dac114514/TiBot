@@ -1,30 +1,17 @@
 package com.faster.tibot.ui.chats
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,20 +19,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.activity.ComponentActivity
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.faster.tibot.data.local.SettingsRepository
-import com.faster.tibot.data.message.ChatSummary
-import com.faster.tibot.data.telegram.BotState
+import com.faster.tibot.ui.chats.components.ChatListSearchBar
+import com.faster.tibot.ui.chats.components.ChatListTopBar
+import com.faster.tibot.ui.chats.components.ChatRow
 
 @Composable
 fun ChatListScreen(
@@ -54,26 +34,16 @@ fun ChatListScreen(
     val vm: ChatsViewModel = viewModel(viewModelStoreOwner = LocalContext.current as ComponentActivity)
     val chats by vm.chats.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-
-    val context = LocalContext.current
-    val settingsRepo = remember { SettingsRepository(context.applicationContext) }
-    val botUsername by settingsRepo.botUsername.collectAsState(initial = "")
-    val botStateInfo by BotState.info.collectAsState()
-    val displayName = if (botStateInfo.username.isNotBlank()) {
-        "@${botStateInfo.username}"
-    } else {
-        botUsername.takeIf { it.isNotBlank() }?.let { "@$it" } ?: "@TiBot"
-    }
-    val onlineText = when {
-        botStateInfo.errorReason != null -> "⚠ ${botStateInfo.errorReason}"
-        botStateInfo.isOnline -> "在线"
-        else -> "连接中…"
-    }
+    var searchVisible by remember { mutableStateOf(false) }
 
     val filteredChats = if (searchQuery.isBlank()) {
         chats
     } else {
-        chats.filter { it.chatTitle.contains(searchQuery, ignoreCase = true) }
+        val q = searchQuery.trim().lowercase()
+        chats.filter {
+            it.chatTitle.lowercase().contains(q) ||
+                it.lastMessage.lowercase().contains(q)
+        }
     }
 
     Column(
@@ -81,35 +51,19 @@ fun ChatListScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // Bot status bar
-        BotStatusBar(displayName, onlineText)
-
-        // Search bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            placeholder = {
-                Text(
-                    text = "搜索",
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = "搜索",
-                    tint = MaterialTheme.colorScheme.secondary,
-                )
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+        ChatListTopBar(
+            title = "消息",
+            onSearchClick = { searchVisible = !searchVisible },
         )
 
+        if (searchVisible) {
+            ChatListSearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+            )
+        }
+
         if (filteredChats.isEmpty()) {
-            // Empty state
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -124,17 +78,14 @@ fun ChatListScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "您的聊天记录将显示在这里",
+                        text = if (searchQuery.isNotBlank()) "没有匹配的聊天" else "您的聊天记录将显示在这里",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
                     )
                 }
             }
         } else {
-            // Chat list
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-            ) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(filteredChats, key = { it.chatId }) { chat ->
                     ChatRow(
                         chat = chat,
@@ -147,145 +98,4 @@ fun ChatListScreen(
             }
         }
     }
-}
-
-@Composable
-private fun BotStatusBar(displayName: String, onlineText: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Green dot
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = displayName,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = "·",
-            color = MaterialTheme.colorScheme.secondary,
-            fontSize = 14.sp,
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = onlineText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-    }
-}
-
-@Composable
-private fun ChatRow(
-    chat: ChatSummary,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Colored circle avatar
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(avatarColor(chat.avatarLetter)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = chat.avatarLetter.uppercase(),
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-            )
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        // Title + last message
-        Column(
-            modifier = Modifier.weight(1f),
-        ) {
-            Text(
-                text = chat.chatTitle,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = chat.lastMessage.ifEmpty { " " },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        Spacer(Modifier.width(8.dp))
-
-        // Time + message count badge
-        Column(
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            if (chat.lastMessageTime.isNotEmpty()) {
-                Text(
-                    text = chat.lastMessageTime,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            }
-            if (chat.messageCount > 1) {
-                Spacer(Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .defaultMinSize(minWidth = 20.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                        .padding(horizontal = 6.dp, vertical = 1.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (chat.messageCount > 99) "99+" else chat.messageCount.toString(),
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun avatarColor(letter: Char): Color {
-    val colors = listOf(
-        Color(0xFFE17076), // red
-        Color(0xFF7BC862), // green
-        Color(0xFFE5CA59), // yellow
-        Color(0xFF65AADD), // blue
-        Color(0xFFA695E7), // purple
-        Color(0xFFEE7AAE), // pink
-        Color(0xFF6EC9CB), // teal
-        Color(0xFFFFA559), // orange
-    )
-    return colors[letter.code.and(0x7FFFFFFF) % colors.size]
 }
