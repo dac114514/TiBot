@@ -23,7 +23,7 @@
             android:name="com.faster.tibot.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.TiBot">
+            android:theme="@style/Theme.TiBot.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

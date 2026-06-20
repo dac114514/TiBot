@@ -11,8 +11,8 @@ android {
         applicationId = "com.faster.tibot"
         minSdk = 24
         targetSdk = 36
-        versionCode = 34
-        versionName = "2.1.3"
+        versionCode = 35
+        versionName = "2.2.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.core.splashscreen)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.ui.tooling)
