@@ -68,7 +68,7 @@ class BotForegroundService : Service() {
             val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             } else 0
-            ServiceCompat.startForeground(this, NOTIF_ID, notif, type)
+            ServiceCompat.startForeground(this, NotificationFactory.NOTIF_ID, notif, type)
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed: ${e.message}", e)
             stopSelf()
@@ -129,7 +129,7 @@ class BotForegroundService : Service() {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             } else 0
             ServiceCompat.startForeground(
-                this, NOTIF_ID,
+                this, NotificationFactory.NOTIF_ID,
                 NotificationFactory.build(this, BotState.info.value), type,
             )
         }.onFailure { Log.w(TAG, "re-promote foreground failed: ${it.message}") }
