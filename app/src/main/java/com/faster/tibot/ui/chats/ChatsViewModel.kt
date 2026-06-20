@@ -40,6 +40,7 @@ data class ChatMessage(
     val mediaType: String = "text",
     val fileName: String = "",
     val mimeType: String = "",
+    val chatType: String = "private",
 )
 
 class ChatsViewModel(application: Application) : AndroidViewModel(application) {
@@ -255,4 +256,5 @@ private fun TelegramMessage.toUi(): ChatMessage = ChatMessage(
     mediaType = mediaType,
     fileName = fileName,
     mimeType = mimeType,
+    chatType = chatType,
 )

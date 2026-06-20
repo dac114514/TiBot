@@ -31,6 +31,7 @@ data class ChatSummary(
     val lastSender: String = "",
     val lastOutgoing: Boolean = false,
     val lastIsAutoReply: Boolean = false,
+    val isAdmin: Boolean = false,
 ) {
     val title: String get() = chatTitle
 }
@@ -63,7 +64,7 @@ class MessageStore(private val context: Context) {
         fun chatMessages(chatId: Long) = stringPreferencesKey("chat_msgs_$chatId")
     }
 
-    suspend fun saveMessage(msg: TelegramMessage) {
+    suspend fun saveMessage(msg: TelegramMessage, isCurrentUserAdmin: Boolean = false) {
         context.messageDataStore.edit { prefs ->
             val msgKey = Keys.chatMessages(msg.chatId)
             val raw = prefs[msgKey] ?: "[]"
@@ -87,11 +88,11 @@ class MessageStore(private val context: Context) {
             }
 
             prefs[msgKey] = arr.toString()
-            updateChatSummary(prefs, msg, arr.length())
+            updateChatSummary(prefs, msg, arr.length(), isCurrentUserAdmin)
         }
     }
 
-    private fun updateChatSummary(prefs: MutablePreferences, msg: TelegramMessage, messageCount: Int) {
+    private fun updateChatSummary(prefs: MutablePreferences, msg: TelegramMessage, messageCount: Int, isCurrentUserAdmin: Boolean = false) {
         val chatListStr = prefs[Keys.CHAT_LIST] ?: "[]"
         val chatListArr = try {
             JSONArray(chatListStr)
@@ -103,14 +104,14 @@ class MessageStore(private val context: Context) {
         for (i in 0 until chatListArr.length()) {
             val item = chatListArr.optJSONObject(i) ?: continue
             if (item.optLong("chatId", 0) == msg.chatId) {
-                updatedList.put(buildChatSummaryJson(msg, messageCount))
+                updatedList.put(buildChatSummaryJson(msg, messageCount, isCurrentUserAdmin))
                 found = true
             } else {
                 updatedList.put(item)
             }
         }
         if (!found) {
-            updatedList.put(buildChatSummaryJson(msg, messageCount))
+            updatedList.put(buildChatSummaryJson(msg, messageCount, isCurrentUserAdmin))
         }
         val finalList = if (updatedList.length() > MAX_CHATS) {
             val sorted = (0 until updatedList.length())
@@ -127,7 +128,7 @@ class MessageStore(private val context: Context) {
         prefs[Keys.CHAT_LIST] = finalList.toString()
     }
 
-    private fun buildChatSummaryJson(msg: TelegramMessage, messageCount: Int): JSONObject {
+    private fun buildChatSummaryJson(msg: TelegramMessage, messageCount: Int, isCurrentUserAdmin: Boolean = false): JSONObject {
         val title = msg.chatTitle
         return JSONObject().apply {
             put("chatId", msg.chatId)
@@ -139,6 +140,7 @@ class MessageStore(private val context: Context) {
             put("lastSender", msg.fromName.take(40))
             put("lastOutgoing", msg.isOutgoing)
             put("lastIsAutoReply", msg.isAutoReply)
+            put("isAdmin", isCurrentUserAdmin)
         }
     }
 
@@ -239,6 +241,7 @@ class MessageStore(private val context: Context) {
                     lastSender = obj.optString("lastSender", ""),
                     lastOutgoing = obj.optBoolean("lastOutgoing", false),
                     lastIsAutoReply = obj.optBoolean("lastIsAutoReply", false),
+                    isAdmin = obj.optBoolean("isAdmin", false),
                 )
             )
         }

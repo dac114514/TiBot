@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.faster.tibot.data.local.SettingsRepository
+import com.faster.tibot.data.local.ThemeMode
 import com.faster.tibot.service.BotForegroundService
 import com.faster.tibot.ui.navigation.AppNavHost
 import com.faster.tibot.ui.navigation.Routes
@@ -41,18 +43,27 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { TiBotTheme { AppRoot() } }
+        val settingsRepo = SettingsRepository(applicationContext)
+        setContent {
+            val themeMode by settingsRepo.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> systemDark
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            TiBotTheme(darkTheme = darkTheme) { AppRoot(settingsRepo) }
+        }
     }
 }
 
 @Composable
-private fun AppRoot() {
+private fun AppRoot(settingsRepo: SettingsRepository) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
     val context = LocalContext.current
-    val settingsRepo = remember { SettingsRepository(context.applicationContext) }
     val isConfigured by settingsRepo.isConfigured.collectAsState(initial = false)
 
     val permissionLauncher = rememberLauncherForActivityResult(

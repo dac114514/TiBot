@@ -202,9 +202,10 @@ class TelegramBotClient(private val token: String) {
         val text = json.optString("text").takeIf { it.isNotBlank() }
             ?: json.optString("caption").takeIf { it.isNotBlank() }
             ?: ""
-        val fromName = from?.optString("first_name")
-            ?: from?.optString("username")
-            ?: json.optString("author_signature", "")
+        val fromName = from?.optString("first_name")?.takeIf { it.isNotEmpty() }
+            ?: from?.optString("username")?.takeIf { it.isNotEmpty() }
+            ?: json.optString("author_signature", "").takeIf { it.isNotEmpty() }
+            ?: ""
         val date = json.optLong("date", 0)
         val fromId = from?.optLong("id", 0L) ?: 0L
 

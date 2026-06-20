@@ -1,5 +1,7 @@
 package com.faster.tibot.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +28,10 @@ fun AppNavHost(
         navController = navController,
         startDestination = startDest,
         modifier = modifier,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
     ) {
         composable(Routes.WIZARD) {
             WizardScreen(onComplete = {

@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.faster.tibot.ui.chats.ChatMessage
 import com.faster.tibot.ui.theme.LocalTgBubbleColors
@@ -65,6 +66,18 @@ fun MessageBubble(
             ) {
                 if (message.isAutoReply) {
                     AutoReplyBadge()
+                }
+
+                if (!message.isOutgoing &&
+                    (message.chatType == "group" || message.chatType == "supergroup") &&
+                    message.senderName.isNotEmpty()) {
+                    Text(
+                        text = message.senderName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 12.dp, bottom = 2.dp),
+                    )
                 }
 
                 BubbleShell(message = message) {
@@ -116,6 +129,7 @@ private fun BubbleShell(
 
     Box(
         modifier = Modifier
+            .widthIn(max = 280.dp)
             .clip(shape)
             .background(bg)
             .then(
