@@ -8,6 +8,7 @@ object BotState {
     data class BotInfo(
         val firstName: String = "",
         val username: String = "",
+        val botId: Long = 0L,
         val isOnline: Boolean = false,
         val errorReason: String? = null,
     )
@@ -15,8 +16,13 @@ object BotState {
     private val _info = MutableStateFlow(BotInfo())
     val info: StateFlow<BotInfo> = _info.asStateFlow()
 
-    fun update(firstName: String, username: String) {
-        _info.value = BotInfo(firstName, username, true, null)
+    @Volatile
+    var startTimeEpoch: Long = 0L
+        private set
+
+    fun update(firstName: String, username: String, botId: Long) {
+        _info.value = BotInfo(firstName, username, botId, true, null)
+        if (startTimeEpoch == 0L) startTimeEpoch = System.currentTimeMillis()
     }
 
     fun setOnline(online: Boolean) {
@@ -29,5 +35,10 @@ object BotState {
 
     fun clearError() {
         _info.value = _info.value.copy(errorReason = null)
+    }
+
+    fun reset() {
+        startTimeEpoch = 0L
+        _info.value = BotInfo()
     }
 }

@@ -41,11 +41,17 @@ class TelegramBotClient(private val token: String) {
             val json = JSONObject(resp.body!!.string())
             if (!json.getBoolean("ok")) return@withContext null
             val user = json.getJSONObject("result")
-            BotUser(
+            val botUser = BotUser(
                 id = user.optLong("id"),
                 firstName = user.optString("first_name", ""),
                 userName = user.optString("username"),
             )
+            BotState.update(
+                firstName = botUser.firstName,
+                username = botUser.userName ?: "",
+                botId = botUser.id,
+            )
+            botUser
         } catch (_: Exception) {
             null
         }

@@ -14,11 +14,13 @@ data class TelegramMessage(
     val chatType: String = "private",
     val isOutgoing: Boolean = false,
     val isBlocked: Boolean = false,
+    val isAutoReply: Boolean = false,
     val fileId: String = "",
     val fileSize: Long = 0L,
     val mimeType: String = "",
     val mediaType: String = "text",
     val localFilePath: String = "",
+    val ruleId: String = "",
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
@@ -33,11 +35,13 @@ data class TelegramMessage(
             put("chatType", chatType)
             put("isOutgoing", isOutgoing)
             put("isBlocked", isBlocked)
+            put("isAutoReply", isAutoReply)
             put("fileId", fileId)
             put("fileSize", fileSize)
             put("mimeType", mimeType)
             put("mediaType", mediaType)
             put("localFilePath", localFilePath)
+            put("ruleId", ruleId)
         }
     }
 
@@ -55,11 +59,13 @@ data class TelegramMessage(
                 chatType = o.optString("chatType", "private"),
                 isOutgoing = o.optBoolean("isOutgoing", false),
                 isBlocked = o.optBoolean("isBlocked", false),
+                isAutoReply = o.optBoolean("isAutoReply", false),
                 fileId = o.optString("fileId", ""),
                 fileSize = o.optLong("fileSize", 0L),
                 mimeType = o.optString("mimeType", ""),
                 mediaType = o.optString("mediaType", "text"),
                 localFilePath = o.optString("localFilePath", ""),
+                ruleId = o.optString("ruleId", ""),
             )
         }
     }

@@ -90,8 +90,8 @@ class BotForegroundService : Service() {
         if (pollingManager == null || currentToken != token) {
             pollingManager?.stop()
             val botClient = TelegramBotClient(token)
-            AutoReplyEngine.resetInstance(applicationContext, botClient)
-            val engine = AutoReplyEngine.getInstance(applicationContext, botClient)
+            AutoReplyEngine.resetInstance(applicationContext, botClient, store)
+            val engine = AutoReplyEngine.getInstance(applicationContext, botClient, store)
             val downloader = FileDownloader(botClient, applicationContext)
             fileDownloader = downloader
             pollingManager = PollingManager(

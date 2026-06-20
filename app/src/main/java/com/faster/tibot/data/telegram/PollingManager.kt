@@ -25,7 +25,7 @@ class PollingManager(
             BotState.clearError()
             val me = botClient.getMe()
             if (me != null) {
-                BotState.update(me.firstName, me.userName ?: "")
+                BotState.update(me.firstName, me.userName ?: "", me.id)
                 settingsRepo.saveBotInfo(me.firstName, me.userName ?: "")
             } else if (BotState.info.value.errorReason == null) {
                 BotState.setError("Token 无效或网络不可达")
@@ -45,6 +45,13 @@ class PollingManager(
                         val mode = settingsRepo.accessMode.first()
                         val admin = settingsRepo.adminId.first()
                         val authorized = isAuthorized(msg, mode, admin)
+                        val botId = BotState.info.value.botId
+
+                        // 防御性：bot 自己的消息通过 getUpdates 收到时，标记为 outgoing 并跳过 autoReply
+                        if (botId != 0L && msg.fromId == botId) {
+                            messageStore.saveMessage(msg.copy(isOutgoing = true))
+                            continue
+                        }
 
                         val toSave = if (authorized) msg else msg.copy(isBlocked = true)
                         messageStore.saveMessage(toSave)
