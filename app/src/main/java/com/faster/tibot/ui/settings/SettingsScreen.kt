@@ -1,11 +1,9 @@
 package com.faster.tibot.ui.settings
 
-import androidx.compose.foundation.BorderStroke
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,32 +11,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,24 +36,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.faster.tibot.BuildConfig
 import com.faster.tibot.data.local.ThemeMode
+import com.faster.tibot.ui.settings.components.AdminManager
+import com.faster.tibot.ui.settings.components.BotInfoCard
+import com.faster.tibot.ui.settings.components.SettingsRow
+import com.faster.tibot.ui.settings.components.SettingsSection
+import com.faster.tibot.ui.settings.components.ToggleRow
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
+    val context = LocalContext.current
     val themeMode by vm.themeMode.collectAsState()
     val accessMode by vm.accessMode.collectAsState()
-    val adminIdValue by vm.adminId.collectAsState()
-    val botTokenValue by vm.botToken.collectAsState()
+    val adminIds by vm.adminIds.collectAsState()
+    val botToken by vm.botToken.collectAsState()
     val backgroundRunning by vm.backgroundRunning.collectAsState()
     val notificationsEnabled by vm.notificationsEnabled.collectAsState()
+    val botInfo by vm.botInfo.collectAsState()
+    val uptimeSeconds by vm.uptimeSeconds.collectAsState()
+
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccessModeDialog by remember { mutableStateOf(false) }
     var tokenVisible by remember { mutableStateOf(false) }
@@ -96,17 +89,21 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState()),
     ) {
         Spacer(Modifier.height(12.dp))
 
-        // 1. Bot Info Card
-        BotInfoCard()
+        BotInfoCard(
+            botInfo = botInfo,
+            uptimeSeconds = uptimeSeconds,
+            onDetailsClick = {
+                Toast.makeText(context, "Bot 详情 TODO", Toast.LENGTH_SHORT).show()
+            },
+        )
 
         Spacer(Modifier.height(16.dp))
 
-        // 2. 通用
         SettingsSection(icon = Icons.Filled.Settings, title = "通用") {
             ToggleRow(
                 title = "后台运行",
@@ -114,7 +111,10 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 checked = backgroundRunning,
                 onCheckedChange = { vm.setBackgroundRunning(it) },
             )
-            PaddedDivider()
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
             ToggleRow(
                 title = "深色主题",
                 subtitle = when (themeMode) {
@@ -128,7 +128,10 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 },
                 onRowClick = { showThemeDialog = true },
             )
-            PaddedDivider()
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
             ToggleRow(
                 title = "通知",
                 subtitle = "接收重要状态提醒",
@@ -139,31 +142,32 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
         Spacer(Modifier.height(16.dp))
 
-        // 3. 管理员
         SettingsSection(icon = Icons.Filled.Security, title = "管理员") {
-            ToggleRow(
+            SettingsRow(
+                icon = Icons.Filled.Public,
                 title = "访问模式",
                 subtitle = if (accessMode == "admin") "仅管理员" else "所有人",
-                checked = accessMode == "admin",
-                onCheckedChange = { admin ->
-                    vm.setAccessMode(if (admin) "admin" else "all")
-                },
-                onRowClick = { showAccessModeDialog = true },
+                onClick = { showAccessModeDialog = true },
             )
-            PaddedDivider()
-            SettingsRow(
-                icon = Icons.Filled.Badge,
-                title = "管理员 User ID",
-                subtitle = if (adminIdValue == 0L) "未设置" else adminIdValue.toString(),
-                onClick = { },
-                showChevron = false,
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
-            PaddedDivider()
+            AdminManager(
+                adminIds = adminIds,
+                onAdd = { vm.addAdmin(it) },
+                onRemove = { vm.removeAdmin(it) },
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
             SettingsRow(
                 icon = Icons.Filled.Key,
                 title = "Bot Token",
                 subtitle = if (tokenVisible) {
-                    botTokenValue.substringBefore(":") + ":••••••••"
+                    val botId = botToken.substringBefore(":")
+                    if (botId.isNotEmpty()) "$botId:••••••••" else "未配置"
                 } else "••••••••••••••••••",
                 onClick = { tokenVisible = !tokenVisible },
                 trailing = {
@@ -179,7 +183,6 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
         Spacer(Modifier.height(16.dp))
 
-        // 4. 关于
         SettingsSection(icon = Icons.Filled.Info, title = "关于") {
             SettingsRow(
                 icon = Icons.Filled.PhoneAndroid,
@@ -188,7 +191,10 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 onClick = { },
                 showChevron = false,
             )
-            PaddedDivider()
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
             SettingsRow(
                 icon = Icons.Filled.Info,
                 title = "开发者",
@@ -201,263 +207,6 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
         Spacer(Modifier.height(24.dp))
     }
 }
-
-// ── Bot Info Card ──────────────────────────────────────────────
-
-@Composable
-private fun BotInfoCard() {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Avatar
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.SmartToy,
-                    contentDescription = "Bot 头像",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(36.dp),
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Username
-            Text(
-                text = "@TiBot",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            Spacer(Modifier.height(6.dp))
-
-            // Online status
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF2ecc71)),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "在线",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = "运行时间: 2h 34m",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Details button
-            OutlinedButton(
-                onClick = { /* TODO: bot detail */ },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
-            ) {
-                Text("详情", modifier = Modifier.padding(vertical = 4.dp))
-            }
-        }
-    }
-}
-
-// ── Section Card ───────────────────────────────────────────────
-
-@Composable
-private fun SettingsSection(
-    icon: ImageVector,
-    title: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Column {
-            // Section header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            // Divider between header and items
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
-
-            // Section items
-            content()
-        }
-    }
-}
-
-// ── Settings Row ───────────────────────────────────────────────
-
-@Composable
-private fun SettingsRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String? = null,
-    onClick: () -> Unit,
-    trailing: (@Composable () -> Unit)? = null,
-    showChevron: Boolean = true,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        if (trailing != null) {
-            trailing()
-        } else if (showChevron) {
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-// ── Toggle Row ─────────────────────────────────────────────────
-
-@Composable
-private fun ToggleRow(
-    title: String,
-    subtitle: String? = null,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    onRowClick: (() -> Unit)? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (onRowClick != null) Modifier.clickable(onClick = onRowClick)
-                else Modifier
-            )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 8.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-        )
-    }
-}
-
-// ── Padded Divider ─────────────────────────────────────────────
-
-@Composable
-private fun PaddedDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
-}
-
-// ── Theme Mode Dialog ──────────────────────────────────────────
 
 @Composable
 private fun ThemeModeDialog(
@@ -473,9 +222,7 @@ private fun ThemeModeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("选择主题模式", fontWeight = FontWeight.Bold)
-        },
+        title = { Text("选择主题模式", fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 options.forEach { (mode, label) ->
@@ -507,14 +254,10 @@ private fun ThemeModeDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+            TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
 }
-
-// ── Access Mode Dialog ────────────────────────────────────────
 
 @Composable
 private fun AccessModeDialog(
@@ -522,16 +265,11 @@ private fun AccessModeDialog(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val options = listOf(
-        "all" to "所有人",
-        "admin" to "仅管理员",
-    )
+    val options = listOf("all" to "所有人", "admin" to "仅管理员")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("选择访问模式", fontWeight = FontWeight.Bold)
-        },
+        title = { Text("访问模式", fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 options.forEach { (mode, label) ->
@@ -563,9 +301,7 @@ private fun AccessModeDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
+            TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
 }

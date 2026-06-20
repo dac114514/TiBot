@@ -6,7 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -23,10 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,13 +49,10 @@ fun ExpandableSettingsCard(
         label = "chevron_rotation",
     )
 
-    OutlinedCard(
+    Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        color = MaterialTheme.colorScheme.background,
     ) {
         Column {
             Row(
