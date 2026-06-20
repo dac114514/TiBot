@@ -8,6 +8,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
@@ -17,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,18 +41,68 @@ fun WizardScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // Progress dots
-        Row(
-            horizontalArrangement = Arrangement.Center,
+        WizardTopBar(currentStep = state.currentStep, totalSteps = 3)
+
+        if (state.tokenError != null) {
+            ErrorCard(message = state.tokenError!!)
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 24.dp),
+        ) {
+            when (state.currentStep) {
+                0 -> WelcomeStep(onNext = { vm.nextStep() })
+                1 -> TokenStep(
+                    token = state.botToken,
+                    tokenValid = state.tokenValid,
+                    isFinishing = state.isFinishing,
+                    errorMessage = state.tokenError,
+                    onTokenChange = { vm.setToken(it) },
+                    onNext = { vm.nextStep() },
+                    onBack = { vm.prevStep() },
+                )
+                2 -> AdminStep(
+                    adminId = state.adminId,
+                    adminIdValid = state.adminIdValid,
+                    isFinishing = state.isFinishing,
+                    onAdminChange = { vm.setAdminId(it) },
+                    onNext = { vm.nextStep() },
+                    onBack = { vm.prevStep() },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WizardTopBar(currentStep: Int, totalSteps: Int) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp, bottom = 16.dp),
+    ) {
+        Text(
+            text = "步骤 ${currentStep + 1} / $totalSteps",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp),
+                .padding(bottom = 8.dp),
+            textAlign = TextAlign.Center,
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            (0..2).forEach { i ->
+            (0 until totalSteps).forEach { i ->
                 val color by animateColorAsState(
                     targetValue = when {
-                        i < state.currentStep -> MaterialTheme.colorScheme.primary
-                        i == state.currentStep -> MaterialTheme.colorScheme.primary
+                        i < currentStep -> MaterialTheme.colorScheme.primary
+                        i == currentStep -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.outlineVariant
                     },
                     label = "dotColor",
@@ -57,7 +111,7 @@ fun WizardScreen(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
                         .size(
-                            width = if (i == state.currentStep) 24.dp else 8.dp,
+                            width = if (i == currentStep) 24.dp else 8.dp,
                             height = 8.dp,
                         )
                         .clip(RoundedCornerShape(4.dp))
@@ -65,61 +119,32 @@ fun WizardScreen(
                 )
             }
         }
-
-        // Step content
-        Box(modifier = Modifier.weight(1f).padding(horizontal = 24.dp)) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                if (state.tokenError != null) {
-                    ErrorCard(message = state.tokenError!!)
-                    Spacer(Modifier.height(12.dp))
-                }
-                when (state.currentStep) {
-                    0 -> WelcomeStep(onNext = { vm.nextStep() })
-                    1 -> TokenStep(
-                        token = state.botToken,
-                        tokenValid = state.tokenValid,
-                        tokenError = state.tokenError,
-                        onTokenChange = { vm.setToken(it) },
-                        onNext = { vm.nextStep() },
-                        onBack = { vm.prevStep() },
-                    )
-                    2 -> AdminStep(
-                        adminId = state.adminId,
-                        adminIdValid = state.adminIdValid,
-                        onAdminChange = { vm.setAdminId(it) },
-                        onNext = { vm.nextStep() },
-                        onBack = { vm.prevStep() },
-                        isFinishing = state.isFinishing,
-                    )
-                }
-            }
-        }
     }
-
 }
 
 @Composable
 private fun ErrorCard(message: String) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
         ),
+        shape = RoundedCornerShape(12.dp),
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Filled.Error,
-                null,
+                imageVector = Icons.Filled.Error,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.size(20.dp),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
             Text(
-                message,
+                text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
@@ -138,14 +163,14 @@ private fun WelcomeStep(onNext: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Surface(
-            modifier = Modifier.size(100.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("🤖", fontSize = 48.sp)
-            }
+            Text("🤖", fontSize = 48.sp)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -153,8 +178,10 @@ private fun WelcomeStep(onNext: () -> Unit) {
         Text(
             text = "TiBot",
             style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
         )
+        Spacer(Modifier.height(8.dp))
         Text(
             text = "Telegram Bot 管理工具",
             style = MaterialTheme.typography.bodyLarge,
@@ -164,22 +191,22 @@ private fun WelcomeStep(onNext: () -> Unit) {
         Spacer(Modifier.height(36.dp))
 
         val features = listOf(
-            "接收和管理 Telegram 私聊/群聊消息" to "聊天",
-            "关键词匹配 + 自动回复规则" to "规则",
-            "自定义 Python 回复策略" to "脚本",
+            "接收和管理 Telegram 私聊/群聊消息" to Icons.Filled.Chat,
+            "关键词匹配 + 自动回复规则" to Icons.Filled.AutoAwesome,
+            "文件收发 / 渐变头像 / 后台保活" to Icons.Filled.AttachFile,
         )
-        features.forEach { (text, _) ->
+        features.forEach { (text, icon) ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 6.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    Icons.Filled.CheckCircle,
+                    imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(24.dp),
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
@@ -190,45 +217,50 @@ private fun WelcomeStep(onNext: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(48.dp))
+        Spacer(Modifier.height(36.dp))
 
         Button(
             onClick = onNext,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp)
+                .padding(horizontal = 16.dp)
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
             ),
             shape = RoundedCornerShape(12.dp),
         ) {
-            Text("开始配置", style = MaterialTheme.typography.titleMedium)
+            Text("开始配置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(Modifier.height(24.dp))
     }
 }
 
-// ── Token Step ─────────────────────────────────────────────────
+// ── Token Step ────────────────────────────────────────────────
 
 @Composable
 private fun TokenStep(
     token: String,
     tokenValid: Boolean,
-    tokenError: String?,
+    isFinishing: Boolean,
+    errorMessage: String?,
     onTokenChange: (String) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onBack, enabled = !isFinishing) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     "返回",
@@ -238,127 +270,132 @@ private fun TokenStep(
             Text(
                 "设置 Bot Token",
                 style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+        Text(
+            "请输入从 @BotFather 获取的 Bot Token",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = token,
+            onValueChange = onTokenChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Bot Token") },
+            placeholder = { Text("1234567890:ABCdefGHIjklMNOpqrsTUVwxyz") },
+            singleLine = true,
+            enabled = !isFinishing,
+            isError = token.isNotEmpty() && !tokenValid,
+            supportingText = when {
+                errorMessage != null -> { { Text(errorMessage, color = MaterialTheme.colorScheme.error) } }
+                token.isNotEmpty() && !tokenValid -> { { Text("Token 格式不正确，应包含 \":\" 且长度大于 20") } }
+                tokenValid -> { { Text("Token 格式有效", color = MaterialTheme.colorScheme.primary) } }
+                else -> null
+            },
+            trailingIcon = {
+                when {
+                    isFinishing -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    tokenValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = MaterialTheme.colorScheme.primary)
+                    token.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = MaterialTheme.colorScheme.error)
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
-            Text(
-                "请输入从 @BotFather 获取的 Bot Token",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = token,
-                onValueChange = onTokenChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Bot Token") },
-                placeholder = { Text("1234567890:ABCdefGHIjklMNOpqrsTUVwxyz") },
-                singleLine = true,
-                isError = (token.isNotEmpty() && !tokenValid) || tokenError != null,
-                supportingText = if (tokenError != null) {
-                    { Text(tokenError, color = MaterialTheme.colorScheme.error) }
-                } else if (token.isNotEmpty() && !tokenValid) {
-                    { Text("Token 格式不正确，应包含 \":\"且长度大于20") }
-                } else if (tokenValid) {
-                    { Text("Token 格式有效", color = MaterialTheme.colorScheme.primary) }
-                } else null,
-                trailingIcon = {
-                    when {
-                        tokenValid && tokenError == null -> Icon(
-                            Icons.Filled.CheckCircle, "有效",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        token.isNotEmpty() -> Icon(
-                            Icons.Filled.Error, "无效",
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                },
-                shape = RoundedCornerShape(12.dp),
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) {
-                Row(modifier = Modifier.padding(16.dp)) {
-                    Icon(
-                        Icons.Filled.Info,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
+            Row(modifier = Modifier.padding(16.dp)) {
+                Icon(
+                    Icons.Filled.Info,
+                    null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "@BotFather 获取指引",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            "@BotFather 获取指引",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "1. 在 Telegram 搜索 @BotFather\n" +
-                                "2. 发送 /newbot 创建 Bot\n" +
-                                "3. 复制获取到的 API Token",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "1. 在 Telegram 搜索 @BotFather\n" +
+                            "2. 发送 /newbot 创建 Bot\n" +
+                            "3. 复制获取到的 API Token",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = onNext,
-                enabled = tokenValid,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
-                ),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text("下一步", style = MaterialTheme.typography.titleMedium)
-            }
-
-            Spacer(Modifier.height(24.dp))
         }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = onNext,
+            enabled = tokenValid && !isFinishing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
+            ),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            if (isFinishing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("验证中...", style = MaterialTheme.typography.titleMedium)
+            } else {
+                Text("下一步", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 }
 
-// ── Admin Step ─────────────────────────────────────────────────
+// ── Admin Step ───────────────────────────────────────────────
 
 @Composable
 private fun AdminStep(
     adminId: String,
     adminIdValid: Boolean,
+    isFinishing: Boolean,
     onAdminChange: (String) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
-    isFinishing: Boolean = false,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onBack, enabled = !isFinishing) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     "返回",
@@ -368,114 +405,104 @@ private fun AdminStep(
             Text(
                 "设置管理员",
                 style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+        Text(
+            "请输入你的 Telegram User ID，用于接收 Bot 通知与权限控制",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = adminId,
+            onValueChange = onAdminChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("User ID") },
+            placeholder = { Text("例如：123456789") },
+            singleLine = true,
+            enabled = !isFinishing,
+            isError = adminId.isNotEmpty() && !adminIdValid,
+            supportingText = if (adminId.isNotEmpty() && !adminIdValid) {
+                { Text("请输入有效的数字 User ID") }
+            } else if (adminIdValid) {
+                { Text("User ID 格式有效", color = MaterialTheme.colorScheme.primary) }
+            } else null,
+            trailingIcon = {
+                when {
+                    isFinishing -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    adminIdValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = MaterialTheme.colorScheme.primary)
+                    adminId.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = MaterialTheme.colorScheme.error)
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
-            Text(
-                "请输入你的 Telegram User ID，用于接收 Bot 通知",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = adminId,
-                onValueChange = onAdminChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("User ID") },
-                placeholder = { Text("例如：123456789") },
-                singleLine = true,
-                isError = adminId.isNotEmpty() && !adminIdValid,
-                supportingText = if (adminId.isNotEmpty() && !adminIdValid) {
-                    { Text("请输入有效的数字 User ID") }
-                } else if (adminIdValid) {
-                    { Text("User ID 格式有效", color = MaterialTheme.colorScheme.primary) }
-                } else null,
-                trailingIcon = {
-                    when {
-                        adminIdValid -> Icon(
-                            Icons.Filled.CheckCircle, "有效",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        adminId.isNotEmpty() -> Icon(
-                            Icons.Filled.Error, "无效",
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                },
-                shape = RoundedCornerShape(12.dp),
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) {
-                Row(modifier = Modifier.padding(16.dp)) {
-                    Icon(
-                        Icons.Filled.Info,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
+            Row(modifier = Modifier.padding(16.dp)) {
+                Icon(
+                    Icons.Filled.Info,
+                    null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "@userinfobot 获取指引",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            "@userinfobot 获取指引",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "1. 在 Telegram 搜索 @userinfobot\n" +
-                                "2. 发送任意消息给该 Bot\n" +
-                                "3. 复制返回的 Id 字段内容",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "1. 在 Telegram 搜索 @userinfobot\n" +
+                            "2. 发送任意消息给该 Bot\n" +
+                            "3. 复制返回的 Id 字段内容",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = onNext,
-                enabled = adminIdValid && !isFinishing,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
-                ),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                if (isFinishing) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text("验证中…", style = MaterialTheme.typography.titleMedium)
-                    }
-                } else {
-                    Text("下一步", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
         }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = onNext,
+            enabled = adminIdValid && !isFinishing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
+            ),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            if (isFinishing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("保存中...", style = MaterialTheme.typography.titleMedium)
+            } else {
+                Text("完成配置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 }
