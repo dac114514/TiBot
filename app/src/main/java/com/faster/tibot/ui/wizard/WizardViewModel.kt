@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
+import com.faster.tibot.data.telegram.TelegramBotClient
+import com.faster.tibot.service.BotForegroundService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -14,6 +16,9 @@ data class WizardState(
     val tokenValid: Boolean = false,
     val adminId: String = "",
     val adminIdValid: Boolean = false,
+    val tokenError: String? = null,
+    val isFinishing: Boolean = false,
+    val setupCompleted: Boolean = false,
 )
 
 class WizardViewModel(application: Application) : AndroidViewModel(application) {
@@ -23,7 +28,11 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setToken(token: String) {
         val valid = token.length > 20 && token.contains(":")
-        _state.value = _state.value.copy(botToken = token, tokenValid = valid)
+        _state.value = _state.value.copy(
+            botToken = token,
+            tokenValid = valid,
+            tokenError = null,
+        )
     }
 
     fun setAdminId(id: String) {
@@ -38,13 +47,26 @@ class WizardViewModel(application: Application) : AndroidViewModel(application) 
     fun nextStep() {
         val step = _state.value.currentStep
         if (step == 2) {
+            if (_state.value.isFinishing) return
+            _state.value = _state.value.copy(isFinishing = true, tokenError = null)
             viewModelScope.launch {
-                settingsRepo.saveTokenOnly(
-                    token = _state.value.botToken,
-                    adminId = _state.value.adminId.toLong(),
+                val token = _state.value.botToken
+                val adminId = _state.value.adminId.toLong()
+                val client = TelegramBotClient(token)
+                val me = client.getMe()
+                if (me == null) {
+                    _state.value = _state.value.copy(
+                        isFinishing = false,
+                        tokenError = "Token 无效或网络不可达",
+                    )
+                    return@launch
+                }
+                settingsRepo.saveConfig(token, adminId)
+                BotForegroundService.start(getApplication(), token)
+                _state.value = _state.value.copy(
+                    isFinishing = false,
+                    setupCompleted = true,
                 )
-                settingsRepo.markConfigured()
-                _state.value = _state.value.copy(currentStep = 3)
             }
         } else {
             _state.value = _state.value.copy(currentStep = step + 1)

@@ -6,6 +6,7 @@ import com.faster.tibot.data.message.MessageStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -14,17 +15,20 @@ class PollingManager(
     private val messageStore: MessageStore,
     private val autoReplyEngine: AutoReplyEngine,
     private val settingsRepo: SettingsRepository,
+    private val fileDownloader: FileDownloader,
 ) {
     private var job: Job? = null
 
     fun start(scope: CoroutineScope) {
         job?.cancel()
         job = scope.launch {
-            // Fetch bot info on startup
+            BotState.clearError()
             val me = botClient.getMe()
             if (me != null) {
                 BotState.update(me.firstName, me.userName ?: "")
                 settingsRepo.saveBotInfo(me.firstName, me.userName ?: "")
+            } else if (BotState.info.value.errorReason == null) {
+                BotState.setError("Token 无效或网络不可达")
             }
 
             var offset = settingsRepo.getUpdateOffset()
@@ -37,8 +41,28 @@ class PollingManager(
                         offset = update.updateId + 1
                         settingsRepo.saveUpdateOffset(offset)
                         val msg = update.message ?: continue
-                        messageStore.saveMessage(msg)
-                        autoReplyEngine.processMessage(msg)
+
+                        val mode = settingsRepo.accessMode.first()
+                        val admin = settingsRepo.adminId.first()
+                        val authorized = isAuthorized(msg, mode, admin)
+
+                        val toSave = if (authorized) msg else msg.copy(isBlocked = true)
+                        messageStore.saveMessage(toSave)
+
+                        if (authorized) {
+                            autoReplyEngine.processMessage(msg)
+                            if (msg.fileId.isNotBlank()) {
+                                val deferred = fileDownloader.ensureDownloaded(msg, scope)
+                                deferred.invokeOnCompletion { result ->
+                                    val path = result.getOrNull() ?: return@invokeOnCompletion
+                                    if (path != "too_large" && path.isNotBlank()) {
+                                        scope.launch {
+                                            messageStore.updateLocalFilePath(msg.chatId, msg.messageId, path)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     BotState.setOnline(true)
                     retryDelay = 1000L
@@ -55,5 +79,18 @@ class PollingManager(
     fun stop() {
         job?.cancel()
         job = null
+    }
+
+    private fun isAuthorized(msg: TelegramMessage, accessMode: String, adminId: Long): Boolean {
+        if (accessMode == "all") return true
+        if (adminId == 0L) return false
+
+        val fromId = msg.fromId
+        return when (msg.chatType) {
+            "private" -> fromId == adminId
+            "channel" -> true
+            "group", "supergroup" -> fromId == adminId
+            else -> false
+        }
     }
 }

@@ -43,6 +43,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.faster.tibot.data.local.SettingsRepository
+import com.faster.tibot.data.message.ChatSummary
+import com.faster.tibot.data.telegram.BotState
 
 @Composable
 fun ChatListScreen(
@@ -52,10 +55,25 @@ fun ChatListScreen(
     val chats by vm.chats.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
+    val context = LocalContext.current
+    val settingsRepo = remember { SettingsRepository(context.applicationContext) }
+    val botUsername by settingsRepo.botUsername.collectAsState(initial = "")
+    val botStateInfo by BotState.info.collectAsState()
+    val displayName = if (botStateInfo.username.isNotBlank()) {
+        "@${botStateInfo.username}"
+    } else {
+        botUsername.takeIf { it.isNotBlank() }?.let { "@$it" } ?: "@TiBot"
+    }
+    val onlineText = when {
+        botStateInfo.errorReason != null -> "⚠ ${botStateInfo.errorReason}"
+        botStateInfo.isOnline -> "在线"
+        else -> "连接中…"
+    }
+
     val filteredChats = if (searchQuery.isBlank()) {
         chats
     } else {
-        chats.filter { it.title.contains(searchQuery, ignoreCase = true) }
+        chats.filter { it.chatTitle.contains(searchQuery, ignoreCase = true) }
     }
 
     Column(
@@ -64,7 +82,7 @@ fun ChatListScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         // Bot status bar
-        BotStatusBar()
+        BotStatusBar(displayName, onlineText)
 
         // Search bar
         OutlinedTextField(
@@ -132,7 +150,7 @@ fun ChatListScreen(
 }
 
 @Composable
-private fun BotStatusBar() {
+private fun BotStatusBar(displayName: String, onlineText: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -149,7 +167,7 @@ private fun BotStatusBar() {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "@my_ti_bot",
+            text = displayName,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
@@ -162,7 +180,7 @@ private fun BotStatusBar() {
         )
         Spacer(Modifier.width(4.dp))
         Text(
-            text = "在线",
+            text = onlineText,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.secondary,
         )
@@ -204,7 +222,7 @@ private fun ChatRow(
             modifier = Modifier.weight(1f),
         ) {
             Text(
-                text = chat.title,
+                text = chat.chatTitle,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
@@ -223,7 +241,7 @@ private fun ChatRow(
 
         Spacer(Modifier.width(8.dp))
 
-        // Time + unread badge
+        // Time + message count badge
         Column(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.Center,
@@ -235,7 +253,7 @@ private fun ChatRow(
                     color = MaterialTheme.colorScheme.secondary,
                 )
             }
-            if (chat.unreadCount > 0) {
+            if (chat.messageCount > 1) {
                 Spacer(Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
@@ -246,7 +264,7 @@ private fun ChatRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(),
+                        text = if (chat.messageCount > 99) "99+" else chat.messageCount.toString(),
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,

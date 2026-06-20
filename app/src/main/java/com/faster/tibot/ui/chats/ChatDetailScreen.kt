@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,16 +24,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayCircleFilled
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.activity.ComponentActivity
@@ -43,11 +51,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.ImageRequest
+import coil.compose.AsyncImage
+import com.faster.tibot.util.FileUtils
+import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun ChatDetailScreen(
@@ -63,7 +78,6 @@ fun ChatDetailScreen(
 
     val listState = rememberLazyListState()
 
-    // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
@@ -75,14 +89,12 @@ fun ChatDetailScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // Top bar
         ChatDetailTopBar(
             chatTitle = chat?.title ?: "聊天",
             chatAvatarLetter = chat?.avatarLetter ?: '?',
             onBack = onBack,
         )
 
-        // Messages
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -118,7 +130,10 @@ fun ChatDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 items(messages, key = { it.id }) { message ->
-                    MessageBubble(message = message)
+                    MessageBubble(
+                        message = message,
+                        onRetry = { vm.retrySendFile(chatId, message) },
+                    )
                     Spacer(Modifier.height(2.dp))
                 }
                 item {
@@ -127,7 +142,6 @@ fun ChatDetailScreen(
             }
         }
 
-        // Bottom input bar
         ChatInputBar(
             chatId = chatId,
             onSend = { text ->
@@ -161,7 +175,6 @@ private fun ChatDetailTopBar(
             )
         }
 
-        // Avatar circle
         Box(
             modifier = Modifier
                 .size(38.dp)
@@ -197,7 +210,10 @@ private fun ChatDetailTopBar(
 }
 
 @Composable
-private fun MessageBubble(message: ChatMessage) {
+private fun MessageBubble(
+    message: ChatMessage,
+    onRetry: () -> Unit = {},
+) {
     val bubbleShape = if (message.isOutgoing) {
         RoundedCornerShape(
             topStart = 16.dp,
@@ -238,56 +254,293 @@ private fun MessageBubble(message: ChatMessage) {
             .padding(horizontal = 8.dp),
         horizontalArrangement = if (message.isOutgoing) Arrangement.End else Arrangement.Start,
     ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .clip(bubbleShape)
-                .background(bubbleColor)
-                .then(
-                    if (!message.isOutgoing) {
-                        Modifier.border(
-                            0.5.dp,
-                            MaterialTheme.colorScheme.outline,
-                            bubbleShape,
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+        Column(
+            modifier = Modifier.widthIn(max = 280.dp),
         ) {
-            Column {
-                if (message.senderName.isNotEmpty() && !message.isOutgoing) {
-                    Text(
-                        text = message.senderName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
+            Box(
+                modifier = Modifier
+                    .clip(bubbleShape)
+                    .background(bubbleColor)
+                    .then(
+                        if (!message.isOutgoing) {
+                            Modifier.border(
+                                0.5.dp,
+                                MaterialTheme.colorScheme.outline,
+                                bubbleShape,
+                            )
+                        } else {
+                            Modifier
+                        }
                     )
-                    Spacer(Modifier.height(2.dp))
-                }
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    Text(
-                        text = message.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = textColor,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Column {
+                    if (message.senderName.isNotEmpty() && !message.isOutgoing) {
+                        Text(
+                            text = message.senderName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                    }
+                    when (message.mediaType) {
+                        "photo" -> PhotoContent(message)
+                        "video", "video_note", "animation" -> VideoCard(message)
+                        "voice" -> VoiceCard(message)
+                        "audio" -> AudioCard(message)
+                        "document", "sticker" -> DocumentCard(message)
+                        else -> TextContent(message, textColor)
+                    }
                     if (message.time.isNotEmpty()) {
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             text = message.time,
                             style = MaterialTheme.typography.labelSmall,
                             color = timeColor,
-                            modifier = Modifier.align(Alignment.Bottom),
                         )
                     }
                 }
             }
+            if (message.isOutgoing && message.status == "failed") {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(end = 12.dp, top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "发送失败",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    if (message.localFilePath.isNotBlank() && File(message.localFilePath).exists()) {
+                        TextButton(onClick = onRetry, modifier = Modifier.height(28.dp)) {
+                            Text("重试", style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else if (message.localFilePath.isNotBlank()) {
+                        Text(
+                            text = "· 文件已清理",
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+            }
+            if (message.isOutgoing && message.status == "sending") {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(end = 12.dp, top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 1.5.dp,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "发送中...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun TextContent(message: ChatMessage, textColor: Color) {
+    Text(
+        text = message.text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = textColor,
+    )
+}
+
+@Composable
+private fun PhotoContent(message: ChatMessage) {
+    val context = LocalContext.current
+    val path = message.localFilePath
+    val exists = path.isNotBlank() && File(path).exists()
+    if (exists) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(File(path))
+                .crossfade(true)
+                .build(),
+            contentDescription = "图片",
+            modifier = Modifier
+                .widthIn(max = 260.dp)
+                .heightIn(max = 320.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Fit,
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        }
+    }
+    if (message.text.isNotBlank()) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = message.text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White,
+        )
+    }
+}
+
+@Composable
+private fun DocumentCard(message: ChatMessage) {
+    Row(
+        modifier = Modifier
+            .widthIn(max = 260.dp)
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.InsertDriveFile,
+            contentDescription = null,
+            modifier = Modifier.size(36.dp),
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = message.fileName.ifBlank { "文件" },
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = formatFileSize(message.fileSize) + " · " + message.mimeType.ifBlank { "未知类型" },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (message.text.isNotBlank() && message.text != message.fileName) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = message.text,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoCard(message: ChatMessage) {
+    val exists = message.localFilePath.isNotBlank() && File(message.localFilePath).exists()
+    Box(
+        modifier = Modifier
+            .widthIn(max = 260.dp)
+            .height(180.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (exists) {
+            Icon(
+                imageVector = Icons.Filled.PlayCircleFilled,
+                contentDescription = "播放",
+                tint = Color.White,
+                modifier = Modifier.size(56.dp),
+            )
+        } else {
+            CircularProgressIndicator(
+                color = Color.White,
+                modifier = Modifier.size(36.dp),
+            )
+        }
+        Text(
+            text = message.fileName.ifBlank { "视频" },
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(8.dp)
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+        )
+    }
+    if (message.text.isNotBlank() && message.text != message.fileName) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = message.text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun VoiceCard(message: ChatMessage) {
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Mic,
+            contentDescription = null,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "语音消息 · ${formatFileSize(message.fileSize)}",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun AudioCard(message: ChatMessage) {
+    Row(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.MusicNote,
+            contentDescription = null,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = message.fileName.ifBlank { "音频" },
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = formatFileSize(message.fileSize),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0) return "未知大小"
+    val kb = bytes / 1024.0
+    val mb = kb / 1024.0
+    return when {
+        mb >= 1 -> "%.1f MB".format(mb)
+        kb >= 1 -> "%.0f KB".format(kb)
+        else -> "$bytes B"
     }
 }
 
@@ -299,13 +552,18 @@ private fun ChatInputBar(
 ) {
     var text by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            val path = it.path ?: it.toString()
-            onSendFile(path, "")
+            scope.launch {
+                runCatching {
+                    val path = FileUtils.copyToCache(context, it)
+                    onSendFile(path, "")
+                }
+            }
         }
     }
 
@@ -316,7 +574,6 @@ private fun ChatInputBar(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Attachment button
         IconButton(
             onClick = { filePickerLauncher.launch("*/*") },
             modifier = Modifier.size(40.dp),
@@ -328,7 +585,6 @@ private fun ChatInputBar(
             )
         }
 
-        // Text input
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -344,8 +600,6 @@ private fun ChatInputBar(
                     color = MaterialTheme.colorScheme.secondary,
                 )
             }
-            // Using a clickable Box with Text that updates; in practice we'd use BasicTextField
-            // but for simplicity we'll use the text area as an interactive element
             BasicTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -358,7 +612,6 @@ private fun ChatInputBar(
             )
         }
 
-        // Send button (only colored when there's text)
         IconButton(
             onClick = {
                 if (text.isNotBlank()) {

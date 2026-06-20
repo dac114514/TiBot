@@ -1,9 +1,14 @@
 package com.faster.tibot
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -22,15 +27,13 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.flow.first
-import com.faster.tibot.data.autoreply.AutoReplyEngine
 import com.faster.tibot.data.local.SettingsRepository
-import com.faster.tibot.data.message.MessageStore
-import com.faster.tibot.data.telegram.PollingManager
-import com.faster.tibot.data.telegram.TelegramBotClient
+import com.faster.tibot.service.BotForegroundService
 import com.faster.tibot.ui.navigation.AppNavHost
 import com.faster.tibot.ui.navigation.Routes
 import com.faster.tibot.ui.theme.TiBotTheme
+import com.faster.tibot.util.PermissionUtils
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,20 +53,33 @@ private fun AppRoot() {
     val settingsRepo = remember { SettingsRepository(context.applicationContext) }
     val isConfigured by settingsRepo.isConfigured.collectAsState(initial = false)
 
-    // Create dependencies and start/stop polling
-    val messageStore = remember { MessageStore(context.applicationContext) }
-    val pollingManager = remember { mutableStateOf<PollingManager?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* no-op; service still runs, just no system notification */ }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !PermissionUtils.hasPostNotificationsPermission(context)
+        ) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(isConfigured) {
         if (isConfigured) {
             val token = settingsRepo.botToken.first()
-            val botClient = TelegramBotClient(token)
-            val engine = AutoReplyEngine.getInstance(context.applicationContext, botClient)
-            val pm = PollingManager(botClient, messageStore, engine, settingsRepo)
-            pollingManager.value = pm
-            pm.start(this)
+            if (token.isNotBlank()) {
+                BotForegroundService.start(context, token)
+            }
+            if (!PermissionUtils.hasPostNotificationsPermission(context)) {
+                android.widget.Toast.makeText(
+                    context,
+                    "未授予通知权限，Bot 后台状态将不显示通知",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
         } else {
-            pollingManager.value?.stop()
+            context.stopService(Intent(context, BotForegroundService::class.java))
         }
     }
 

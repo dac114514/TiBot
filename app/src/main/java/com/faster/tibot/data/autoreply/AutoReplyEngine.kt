@@ -28,11 +28,15 @@ class AutoReplyEngine private constructor(
         @Volatile
         private var INSTANCE: AutoReplyEngine? = null
 
-        fun getInstance(context: Context, botClient: TelegramBotClient): AutoReplyEngine {
-            return INSTANCE ?: synchronized(this) {
+        fun getInstance(context: Context, botClient: TelegramBotClient): AutoReplyEngine =
+            INSTANCE ?: synchronized(this) {
                 INSTANCE ?: AutoReplyEngine(botClient, context.applicationContext).also { INSTANCE = it }
             }
-        }
+
+        fun resetInstance(context: Context, botClient: TelegramBotClient): AutoReplyEngine =
+            synchronized(this) {
+                AutoReplyEngine(botClient, context.applicationContext).also { INSTANCE = it }
+            }
     }
 
     private object Keys {
@@ -42,6 +46,11 @@ class AutoReplyEngine private constructor(
     /**
      * Match an incoming message against stored rules and auto-reply if any match.
      * Returns true if a reply was sent.
+     *
+     * Note: admin/permission filtering is performed upstream in [PollingManager].
+     * This method assumes the caller has already gated the message via `isAuthorized`.
+     * We intentionally do not re-check here to avoid double-validation and to keep
+     * the rule engine focused on rule matching.
      */
     suspend fun processMessage(msg: TelegramMessage): Boolean {
         val rules = loadRules()

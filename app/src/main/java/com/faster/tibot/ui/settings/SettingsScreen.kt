@@ -22,9 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Visibility
@@ -62,9 +62,13 @@ import com.faster.tibot.data.local.ThemeMode
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     val themeMode by vm.themeMode.collectAsState()
-    var backgroundRunning by remember { mutableStateOf(true) }
-    var notificationsEnabled by remember { mutableStateOf(true) }
+    val accessMode by vm.accessMode.collectAsState()
+    val adminIdValue by vm.adminId.collectAsState()
+    val botTokenValue by vm.botToken.collectAsState()
+    val backgroundRunning by vm.backgroundRunning.collectAsState()
+    val notificationsEnabled by vm.notificationsEnabled.collectAsState()
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showAccessModeDialog by remember { mutableStateOf(false) }
     var tokenVisible by remember { mutableStateOf(false) }
 
     if (showThemeDialog) {
@@ -75,6 +79,17 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 showThemeDialog = false
             },
             onDismiss = { showThemeDialog = false },
+        )
+    }
+
+    if (showAccessModeDialog) {
+        AccessModeDialog(
+            current = accessMode,
+            onSelect = { mode ->
+                vm.setAccessMode(mode)
+                showAccessModeDialog = false
+            },
+            onDismiss = { showAccessModeDialog = false },
         )
     }
 
@@ -97,7 +112,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 title = "后台运行",
                 subtitle = "应用退出后保持 Bot 运行",
                 checked = backgroundRunning,
-                onCheckedChange = { backgroundRunning = it },
+                onCheckedChange = { vm.setBackgroundRunning(it) },
             )
             PaddedDivider()
             ToggleRow(
@@ -118,7 +133,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 title = "通知",
                 subtitle = "接收重要状态提醒",
                 checked = notificationsEnabled,
-                onCheckedChange = { notificationsEnabled = it },
+                onCheckedChange = { vm.setNotificationsEnabled(it) },
             )
         }
 
@@ -126,16 +141,30 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
         // 3. 管理员
         SettingsSection(icon = Icons.Filled.Security, title = "管理员") {
+            ToggleRow(
+                title = "访问模式",
+                subtitle = if (accessMode == "admin") "仅管理员" else "所有人",
+                checked = accessMode == "admin",
+                onCheckedChange = { admin ->
+                    vm.setAccessMode(if (admin) "admin" else "all")
+                },
+                onRowClick = { showAccessModeDialog = true },
+            )
+            PaddedDivider()
             SettingsRow(
-                icon = Icons.Filled.PersonAdd,
-                title = "添加管理员",
-                onClick = { /* TODO: add admin */ },
+                icon = Icons.Filled.Badge,
+                title = "管理员 User ID",
+                subtitle = if (adminIdValue == 0L) "未设置" else adminIdValue.toString(),
+                onClick = { },
+                showChevron = false,
             )
             PaddedDivider()
             SettingsRow(
                 icon = Icons.Filled.Key,
                 title = "Bot Token",
-                subtitle = if (tokenVisible) vm.botToken.collectAsState().value.take(10) + "•••" else "••••••••••••••••••",
+                subtitle = if (tokenVisible) {
+                    botTokenValue.substringBefore(":") + ":••••••••"
+                } else "••••••••••••••••••",
                 onClick = { tokenVisible = !tokenVisible },
                 trailing = {
                     Icon(
@@ -446,6 +475,62 @@ private fun ThemeModeDialog(
         onDismissRequest = onDismiss,
         title = {
             Text("选择主题模式", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column {
+                options.forEach { (mode, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(mode) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (mode == current) {
+                            Text(
+                                text = "✓",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    if (mode != options.last().first) {
+                        HorizontalDivider()
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
+}
+
+// ── Access Mode Dialog ────────────────────────────────────────
+
+@Composable
+private fun AccessModeDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val options = listOf(
+        "all" to "所有人",
+        "admin" to "仅管理员",
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("选择访问模式", fontWeight = FontWeight.Bold)
         },
         text = {
             Column {

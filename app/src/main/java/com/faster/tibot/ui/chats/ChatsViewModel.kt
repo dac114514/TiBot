@@ -1,32 +1,27 @@
 package com.faster.tibot.ui.chats
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.faster.tibot.data.local.SettingsRepository
+import com.faster.tibot.data.message.ChatSummary
 import com.faster.tibot.data.message.MessageStore
 import com.faster.tibot.data.telegram.TelegramBotClient
 import com.faster.tibot.data.telegram.TelegramMessage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
-data class ChatSummary(
-    val chatId: Long,
-    val title: String,
-    val lastMessage: String = "",
-    val lastMessageTime: String = "",
-    val unreadCount: Int = 0,
-    val avatarLetter: Char = '?',
-)
+import kotlin.random.Random
 
 data class ChatMessage(
     val id: String,
@@ -36,15 +31,31 @@ data class ChatMessage(
     val senderName: String = "",
     val time: String = "",
     val hasFile: Boolean = false,
+    val status: String = "sent",
+    val localFilePath: String = "",
+    val fileSize: Long = 0L,
+    val mediaType: String = "text",
+    val fileName: String = "",
+    val mimeType: String = "",
 )
 
 class ChatsViewModel(application: Application) : AndroidViewModel(application) {
     private val messageStore = MessageStore(application)
     private val settingsRepo = SettingsRepository(application)
-    private var botClient: TelegramBotClient? = null
 
-    private val _chats = MutableStateFlow(listOf<ChatSummary>())
-    val chats = _chats.asStateFlow()
+    private val _botClient = MutableStateFlow<TelegramBotClient?>(null)
+
+    init {
+        viewModelScope.launch {
+            val token = settingsRepo.botToken.first()
+            if (token.isNotBlank()) {
+                _botClient.value = TelegramBotClient(token)
+            }
+        }
+    }
+
+    val chats: StateFlow<List<ChatSummary>> = messageStore.getAllChatsFlow()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _messages = MutableStateFlow(listOf<ChatMessage>())
     val messages = _messages.asStateFlow()
@@ -54,143 +65,188 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
 
     private var messagesJob: Job? = null
 
-    init {
-        viewModelScope.launch {
-            val token = settingsRepo.botToken.first()
-            botClient = if (token.isNotBlank()) TelegramBotClient(token) else null
-        }
-        viewModelScope.launch {
-            messageStore.getAllChatsFlow().collect { list: List<com.faster.tibot.data.message.ChatSummary> ->
-                _chats.value = list.map { cs ->
-                    ChatSummary(
-                        chatId = cs.chatId,
-                        title = cs.chatTitle,
-                        lastMessage = cs.lastMessage,
-                        lastMessageTime = formatTime(cs.lastTime),
-                        unreadCount = 0,
-                        avatarLetter = cs.chatTitle.firstOrNull() ?: '?',
-                    )
-                }
-            }
-        }
-    }
-
     fun selectChat(chatId: Long) {
         _activeChatId.value = chatId
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
-            messageStore.getMessages(chatId) // keep one-shot for now
-            // Use reactive approach: poll every 2s while chat is active
-            while (isActive) {
-                try {
-                    val msgs = messageStore.getMessages(chatId)
-                    _messages.value = msgs.map { msg ->
-                        ChatMessage(
-                            id = "msg_${msg.messageId}",
-                            chatId = msg.chatId,
-                            text = msg.text,
-                            isOutgoing = msg.messageId < 0,
-                            senderName = msg.fromName,
-                            time = SimpleDateFormat("HH:mm", Locale.getDefault())
-                                .format(Date(msg.date * 1000)),
-                            hasFile = msg.fileName.isNotBlank(),
-                        )
-                    }
-                } catch (_: Exception) {}
-                delay(2000)
+            messageStore.getMessagesFlow(chatId).collect { msgs ->
+                _messages.value = msgs.map { msg -> msg.toUi() }
             }
         }
     }
 
     fun sendMessage(chatId: Long, text: String) {
+        val localId = "local_text_${System.currentTimeMillis()}_${Random.nextInt()}"
+        val pendingMsg = ChatMessage(
+            id = localId,
+            chatId = chatId,
+            text = text,
+            isOutgoing = true,
+            senderName = "我",
+            time = currentTime(),
+            status = "sending",
+            mediaType = "text",
+        )
+        _messages.value = _messages.value + pendingMsg
+
+        val client = _botClient.value
+        if (client == null) {
+            Log.w(TAG, "client not ready, marking message as failed")
+            _messages.value = _messages.value.map { m ->
+                if (m.id == localId) m.copy(status = "failed") else m
+            }
+            return
+        }
+
         viewModelScope.launch {
-            try {
-                botClient?.sendMessage(chatId, text)
-                // Persist outgoing message so it shows in chat
-                messageStore.saveMessage(TelegramMessage(
-                    messageId = -System.currentTimeMillis(), // temporary negative ID
-                    chatId = chatId,
-                    chatTitle = "", // will be filled by the Flow
-                    text = text,
-                    fromName = "我",
-                    date = System.currentTimeMillis() / 1000,
-                ))
-            } catch (_: Exception) {}
-            // Keep optimistic local add
-            val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-            val newMsg = ChatMessage(
-                id = "local_${System.currentTimeMillis()}",
-                chatId = chatId,
-                text = text,
-                isOutgoing = true,
-                senderName = "我",
-                time = timeFormatter.format(Date()),
+            val result = client.sendMessage(chatId, text)
+            result.fold(
+                onSuccess = { serverId ->
+                    val chatTitle = chats.value.find { it.chatId == chatId }?.chatTitle ?: ""
+                    val sentMsg = TelegramMessage(
+                        messageId = serverId ?: -Random.nextLong(1, Long.MAX_VALUE),
+                        chatId = chatId,
+                        chatTitle = chatTitle,
+                        text = text,
+                        fromName = "我",
+                        date = System.currentTimeMillis() / 1000,
+                        isOutgoing = true,
+                        mediaType = "text",
+                    )
+                    messageStore.saveMessage(sentMsg)
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == localId) m.copy(id = "msg_${sentMsg.messageId}", status = "sent") else m
+                    }
+                },
+                onFailure = { _ ->
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == localId) m.copy(status = "failed") else m
+                    }
+                },
             )
-            _messages.value = _messages.value + newMsg
         }
     }
 
-    fun sendFile(chatId: Long, filePath: String, caption: String = "") {
-        viewModelScope.launch {
-            try {
-                botClient?.sendDocument(chatId, filePath, caption)
-                // Persist outgoing file message
-                val fileName = filePath.substringAfterLast("/")
-                messageStore.saveMessage(TelegramMessage(
-                    messageId = -System.currentTimeMillis(),
-                    chatId = chatId,
-                    chatTitle = "",
-                    text = caption.ifBlank { fileName },
-                    fromName = "我",
-                    date = System.currentTimeMillis() / 1000,
-                    fileName = fileName,
-                ))
-            } catch (_: Exception) {}
-        }
-        val fileName = filePath.substringAfterLast("/")
+    fun sendFile(chatId: Long, filePath: String, caption: String = "", replaceLocalId: String? = null) {
+        val localId = "local_file_${System.currentTimeMillis()}_${Random.nextInt()}"
+        val fileName = filePath.substringAfterLast('/').ifBlank { "file" }
+        val fileSize = runCatching { File(filePath).length() }.getOrDefault(0L)
+
         val displayText = if (caption.isNotBlank()) "[文件: $fileName] $caption" else "[文件: $fileName]"
-        val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val newMsg = ChatMessage(
-            id = "file_${System.currentTimeMillis()}",
+
+        val client = _botClient.value
+        if (client == null) {
+            Log.w(TAG, "client not ready, marking file message as failed")
+            val failed = ChatMessage(
+                id = localId,
+                chatId = chatId,
+                text = displayText,
+                isOutgoing = true,
+                senderName = "我",
+                time = currentTime(),
+                hasFile = true,
+                status = "failed",
+                fileName = fileName,
+                mediaType = "document",
+                fileSize = fileSize,
+                localFilePath = filePath,
+            )
+            if (replaceLocalId != null) {
+                _messages.value = _messages.value.filter { it.id != replaceLocalId }
+            }
+            _messages.value = _messages.value + failed
+            return
+        }
+
+        val pendingMsg = ChatMessage(
+            id = localId,
             chatId = chatId,
             text = displayText,
             isOutgoing = true,
             senderName = "我",
-            time = timeFormatter.format(Date()),
+            time = currentTime(),
             hasFile = true,
+            status = "sending",
+            fileName = fileName,
+            mediaType = "document",
+            fileSize = fileSize,
+            localFilePath = filePath,
         )
-        _messages.value = _messages.value + newMsg
-    }
+        if (replaceLocalId != null) {
+            _messages.value = _messages.value.filter { it.id != replaceLocalId }
+        }
+        _messages.value = _messages.value + pendingMsg
 
-    fun refreshChats() {
         viewModelScope.launch {
-            try {
-                _chats.value = messageStore.getAllChats().map { cs ->
-                    ChatSummary(
-                        chatId = cs.chatId,
-                        title = cs.chatTitle,
-                        lastMessage = cs.lastMessage,
-                        lastMessageTime = formatTime(cs.lastTime),
-                        unreadCount = 0,
-                        avatarLetter = cs.chatTitle.firstOrNull() ?: '?',
+            val result = client.sendDocument(chatId, filePath, caption)
+            result.fold(
+                onSuccess = { serverId ->
+                    val chatTitle = chats.value.find { it.chatId == chatId }?.chatTitle ?: ""
+                    val sentMsg = TelegramMessage(
+                        messageId = serverId ?: -Random.nextLong(1, Long.MAX_VALUE),
+                        chatId = chatId,
+                        chatTitle = chatTitle,
+                        text = caption.ifBlank { fileName },
+                        fromName = "我",
+                        date = System.currentTimeMillis() / 1000,
+                        fileName = fileName,
+                        isOutgoing = true,
+                        fileId = "",
+                        fileSize = fileSize,
+                        mimeType = "",
+                        mediaType = "document",
+                        localFilePath = filePath,
                     )
-                }
-            } catch (_: Exception) {
-            }
+                    messageStore.saveMessage(sentMsg)
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == localId) m.copy(id = "msg_${sentMsg.messageId}", status = "sent") else m
+                    }
+                },
+                onFailure = { _ ->
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == localId) m.copy(status = "failed") else m
+                    }
+                },
+            )
         }
     }
 
-    private fun formatTime(epochSeconds: Long): String {
-        if (epochSeconds == 0L) return ""
-        val date = Date(epochSeconds * 1000)
-        val cal = Calendar.getInstance()
-        val msgCal = Calendar.getInstance().apply { time = date }
-        val sdf = if (cal.get(Calendar.DAY_OF_YEAR) == msgCal.get(Calendar.DAY_OF_YEAR) &&
-                cal.get(Calendar.YEAR) == msgCal.get(Calendar.YEAR)
-        )
-            SimpleDateFormat("HH:mm", Locale.getDefault())
-        else
-            SimpleDateFormat("MM/dd", Locale.getDefault())
-        return sdf.format(date)
+    fun retrySendFile(chatId: Long, message: ChatMessage) {
+        if (message.localFilePath.isBlank() || !File(message.localFilePath).exists()) {
+            _messages.value = _messages.value.map {
+                if (it.id == message.id) it.copy(text = "[文件已清理，请重新选择]") else it
+            }
+            return
+        }
+        val caption = message.text.removePrefix("[文件: ${message.fileName}] ")
+            .takeIf { it != message.text } ?: ""
+        sendFile(chatId, message.localFilePath, caption, replaceLocalId = message.id)
+    }
+
+    fun refreshChats() {
+        // No-op: chats are now reactive via stateIn(getAllChatsFlow).
+    }
+
+    private fun currentTime(): String =
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+
+    companion object {
+        private const val TAG = "ChatsViewModel"
     }
 }
+
+private fun TelegramMessage.toUi(): ChatMessage = ChatMessage(
+    id = "msg_$messageId",
+    chatId = chatId,
+    text = text,
+    isOutgoing = isOutgoing,
+    senderName = fromName,
+    time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(date * 1000)),
+    hasFile = fileName.isNotBlank() || mediaType != "text",
+    status = "sent",
+    localFilePath = localFilePath,
+    fileSize = fileSize,
+    mediaType = mediaType,
+    fileName = fileName,
+    mimeType = mimeType,
+)

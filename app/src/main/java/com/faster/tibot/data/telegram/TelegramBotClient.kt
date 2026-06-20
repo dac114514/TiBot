@@ -9,6 +9,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 data class BotUser(val id: Long, val firstName: String, val userName: String?)
@@ -72,22 +73,63 @@ class TelegramBotClient(private val token: String) {
             }
         }
 
-    suspend fun sendMessage(chatId: Long, text: String) = withContext(Dispatchers.IO) {
+    suspend fun getFile(fileId: String): TelegramFile? = withContext(Dispatchers.IO) {
         try {
+            val body = JSONObject().apply { put("file_id", fileId) }
+            val req = Request.Builder().url("$baseUrl/getFile")
+                .post(body.toString().toRequestBody(jsonMedia)).build()
+            client.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) return@withContext null
+                val bodyText = res.body?.string().orEmpty()
+                val json = JSONObject(bodyText)
+                if (!json.optBoolean("ok", false)) return@withContext null
+                val result = json.optJSONObject("result") ?: return@withContext null
+                TelegramFile(
+                    fileId = result.optString("file_id", fileId),
+                    filePath = result.optString("file_path", ""),
+                    fileSize = result.optLong("file_size", 0L),
+                    mimeType = null,
+                )
+            }
+        } catch (_: Exception) { null }
+    }
+
+    suspend fun downloadFile(filePath: String, dest: File): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (filePath.isBlank()) return@withContext false
+            val url = "https://api.telegram.org/file/bot$token/$filePath"
+            val req = Request.Builder().url(url).get().build()
+            client.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) return@withContext false
+                val src = res.body?.byteStream() ?: return@withContext false
+                dest.parentFile?.mkdirs()
+                dest.outputStream().use { out -> src.copyTo(out, 8 * 1024) }
+                dest.length() > 0
+            }
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun sendMessage(chatId: Long, text: String): Result<Long?> = withContext(Dispatchers.IO) {
+        runCatching {
             val body = JSONObject().apply {
                 put("chat_id", chatId)
                 put("text", text)
             }
             val req = Request.Builder().url("$baseUrl/sendMessage")
                 .post(body.toString().toRequestBody(jsonMedia)).build()
-            client.newCall(req).execute().close()
-        } catch (_: Exception) {
+            client.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) error("HTTP ${res.code}")
+                val bodyText = res.body?.string().orEmpty()
+                val json = JSONObject(bodyText)
+                if (!json.optBoolean("ok", false)) error("sendMessage failed: $bodyText")
+                json.getJSONObject("result").optLong("message_id")
+            }
         }
     }
 
-    suspend fun sendMessage(chatId: Long, text: String, replyTo: Long) =
+    suspend fun sendMessage(chatId: Long, text: String, replyTo: Long): Result<Long?> =
         withContext(Dispatchers.IO) {
-            try {
+            runCatching {
                 val body = JSONObject().apply {
                     put("chat_id", chatId)
                     put("text", text)
@@ -95,25 +137,43 @@ class TelegramBotClient(private val token: String) {
                 }
                 val req = Request.Builder().url("$baseUrl/sendMessage")
                     .post(body.toString().toRequestBody(jsonMedia)).build()
-                client.newCall(req).execute().close()
-            } catch (_: Exception) {
+                client.newCall(req).execute().use { res ->
+                    if (!res.isSuccessful) error("HTTP ${res.code}")
+                    val bodyText = res.body?.string().orEmpty()
+                    val json = JSONObject(bodyText)
+                    if (!json.optBoolean("ok", false)) error("sendMessage failed: $bodyText")
+                    json.getJSONObject("result").optLong("message_id")
+                }
             }
         }
 
-    suspend fun sendDocument(chatId: Long, filePath: String, caption: String = "") = withContext(Dispatchers.IO) {
-        try {
-            val file = java.io.File(filePath)
+    suspend fun sendDocument(
+        chatId: Long,
+        filePath: String,
+        caption: String = "",
+    ): Result<Long?> = withContext(Dispatchers.IO) {
+        runCatching {
+            val file = File(filePath)
             val requestBody = okhttp3.MultipartBody.Builder()
                 .setType(okhttp3.MultipartBody.FORM)
                 .addFormDataPart("chat_id", chatId.toString())
-                .addFormDataPart("document", file.name,
-                    file.asRequestBody("application/octet-stream".toMediaType()))
+                .addFormDataPart(
+                    "document",
+                    file.name,
+                    file.asRequestBody("application/octet-stream".toMediaType())
+                )
                 .apply { if (caption.isNotBlank()) addFormDataPart("caption", caption) }
                 .build()
             val req = Request.Builder().url("$baseUrl/sendDocument")
                 .post(requestBody).build()
-            client.newCall(req).execute().close()
-        } catch (_: Exception) {}
+            client.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) error("HTTP ${res.code}")
+                val bodyText = res.body?.string().orEmpty()
+                val json = JSONObject(bodyText)
+                if (!json.optBoolean("ok", false)) error("sendDocument failed: $bodyText")
+                json.getJSONObject("result").optLong("message_id")
+            }
+        }
     }
 
     private fun parseUpdate(json: JSONObject): TelegramUpdate {
@@ -126,24 +186,128 @@ class TelegramBotClient(private val token: String) {
         if (json == null) return null
         val chat = json.optJSONObject("chat")
         val from = json.optJSONObject("from")
+        val chatType = chat?.optString("type", "private") ?: "private"
+        val messageId = json.optLong("message_id", 0)
+        val chatId = chat?.optLong("id", 0) ?: 0L
+        val chatTitle = chat?.optString("title")
+            ?: chat?.optString("first_name")
+            ?: chat?.optString("username")
+            ?: ""
+        val text = json.optString("text").takeIf { it.isNotBlank() }
+            ?: json.optString("caption").takeIf { it.isNotBlank() }
+            ?: ""
+        val fromName = from?.optString("first_name")
+            ?: from?.optString("username")
+            ?: json.optString("author_signature", "")
+        val date = json.optLong("date", 0)
+        val fromId = from?.optLong("id", 0L) ?: 0L
+
+        val media = extractMedia(json)
+
         return TelegramMessage(
-            messageId = json.optLong("message_id", 0),
-            chatId = chat?.optLong("id", 0) ?: 0,
-            chatTitle = chat?.optString("title")
-                ?: chat?.optString("first_name")
-                ?: chat?.optString("username")
-                ?: "",
-            text = json.optString("text").takeIf { it.isNotBlank() }
-                ?: json.optString("caption").takeIf { it.isNotBlank() }
-                ?: "",
-            fromName = from?.optString("first_name")
-                ?: from?.optString("username")
-                ?: "",
-            date = json.optLong("date", 0),
-            fileName = json.optJSONObject("document")?.optString("file_name", "")
-                ?: json.optJSONObject("video")?.optString("file_name", "")
-                ?: json.optJSONObject("audio")?.optString("file_name", "")
-                ?: "",
+            messageId = messageId,
+            chatId = chatId,
+            chatTitle = chatTitle,
+            text = text,
+            fromName = fromName,
+            date = date,
+            fileName = media.fileName,
+            fromId = fromId,
+            chatType = chatType,
+            isOutgoing = false,
+            isBlocked = false,
+            fileId = media.fileId,
+            fileSize = media.fileSize,
+            mimeType = media.mimeType,
+            mediaType = media.mediaType,
+            localFilePath = "",
         )
+    }
+
+    private data class ExtractedMedia(
+        val fileId: String,
+        val fileName: String,
+        val fileSize: Long,
+        val mimeType: String,
+        val mediaType: String,
+    )
+
+    private fun extractMedia(json: JSONObject): ExtractedMedia {
+        json.optJSONObject("document")?.let { d ->
+            return ExtractedMedia(
+                fileId = d.optString("file_id", ""),
+                fileName = d.optString("file_name", ""),
+                fileSize = d.optLong("file_size", 0L),
+                mimeType = d.optString("mime_type", ""),
+                mediaType = "document",
+            )
+        }
+        json.optJSONArray("photo")?.let { arr ->
+            if (arr.length() > 0) {
+                val largest = arr.getJSONObject(arr.length() - 1)
+                return ExtractedMedia(
+                    fileId = largest.optString("file_id", ""),
+                    fileName = "photo_${System.currentTimeMillis()}.jpg",
+                    fileSize = largest.optLong("file_size", 0L),
+                    mimeType = "image/jpeg",
+                    mediaType = "photo",
+                )
+            }
+        }
+        json.optJSONObject("video")?.let { v ->
+            return ExtractedMedia(
+                fileId = v.optString("file_id", ""),
+                fileName = v.optString("file_name", ""),
+                fileSize = v.optLong("file_size", 0L),
+                mimeType = v.optString("mime_type", ""),
+                mediaType = "video",
+            )
+        }
+        json.optJSONObject("video_note")?.let { v ->
+            return ExtractedMedia(
+                fileId = v.optString("file_id", ""),
+                fileName = "video_note_${v.optString("file_id", "")}.mp4",
+                fileSize = v.optLong("file_size", 0L),
+                mimeType = "video/mp4",
+                mediaType = "video_note",
+            )
+        }
+        json.optJSONObject("audio")?.let { a ->
+            return ExtractedMedia(
+                fileId = a.optString("file_id", ""),
+                fileName = a.optString("file_name", ""),
+                fileSize = a.optLong("file_size", 0L),
+                mimeType = a.optString("mime_type", ""),
+                mediaType = "audio",
+            )
+        }
+        json.optJSONObject("voice")?.let { v ->
+            return ExtractedMedia(
+                fileId = v.optString("file_id", ""),
+                fileName = "voice_${v.optString("file_id", "")}.ogg",
+                fileSize = v.optLong("file_size", 0L),
+                mimeType = v.optString("mime_type", "audio/ogg"),
+                mediaType = "voice",
+            )
+        }
+        json.optJSONObject("animation")?.let { a ->
+            return ExtractedMedia(
+                fileId = a.optString("file_id", ""),
+                fileName = a.optString("file_name", ""),
+                fileSize = a.optLong("file_size", 0L),
+                mimeType = a.optString("mime_type", ""),
+                mediaType = "animation",
+            )
+        }
+        json.optJSONObject("sticker")?.let { s ->
+            return ExtractedMedia(
+                fileId = s.optString("file_id", ""),
+                fileName = "sticker_${s.optString("file_id", "")}.webp",
+                fileSize = s.optLong("file_size", 0L),
+                mimeType = "image/webp",
+                mediaType = "sticker",
+            )
+        }
+        return ExtractedMedia("", "", 0L, "", "text")
     }
 }

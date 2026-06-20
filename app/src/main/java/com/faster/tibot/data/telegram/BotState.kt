@@ -9,16 +9,25 @@ object BotState {
         val firstName: String = "",
         val username: String = "",
         val isOnline: Boolean = false,
+        val errorReason: String? = null,
     )
 
     private val _info = MutableStateFlow(BotInfo())
     val info: StateFlow<BotInfo> = _info.asStateFlow()
 
     fun update(firstName: String, username: String) {
-        _info.value = BotInfo(firstName, username, true)
+        _info.value = BotInfo(firstName, username, true, null)
     }
 
     fun setOnline(online: Boolean) {
         _info.value = _info.value.copy(isOnline = online)
+    }
+
+    fun setError(reason: String) {
+        _info.value = _info.value.copy(isOnline = false, errorReason = reason)
+    }
+
+    fun clearError() {
+        _info.value = _info.value.copy(errorReason = null)
     }
 }

@@ -28,6 +28,10 @@ fun WizardScreen(
 ) {
     val state by vm.state.collectAsState()
 
+    LaunchedEffect(state.setupCompleted) {
+        if (state.setupCompleted) onComplete()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,29 +68,63 @@ fun WizardScreen(
 
         // Step content
         Box(modifier = Modifier.weight(1f).padding(horizontal = 24.dp)) {
-            when (state.currentStep) {
-                0 -> WelcomeStep(onNext = { vm.nextStep() })
-                1 -> TokenStep(
-                    token = state.botToken,
-                    tokenValid = state.tokenValid,
-                    onTokenChange = { vm.setToken(it) },
-                    onNext = { vm.nextStep() },
-                    onBack = { vm.prevStep() },
-                )
-                2 -> AdminStep(
-                    adminId = state.adminId,
-                    adminIdValid = state.adminIdValid,
-                    onAdminChange = { vm.setAdminId(it) },
-                    onNext = {
-                        vm.nextStep()
-                        onComplete()
-                    },
-                    onBack = { vm.prevStep() },
-                )
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (state.tokenError != null) {
+                    ErrorCard(message = state.tokenError!!)
+                    Spacer(Modifier.height(12.dp))
+                }
+                when (state.currentStep) {
+                    0 -> WelcomeStep(onNext = { vm.nextStep() })
+                    1 -> TokenStep(
+                        token = state.botToken,
+                        tokenValid = state.tokenValid,
+                        tokenError = state.tokenError,
+                        onTokenChange = { vm.setToken(it) },
+                        onNext = { vm.nextStep() },
+                        onBack = { vm.prevStep() },
+                    )
+                    2 -> AdminStep(
+                        adminId = state.adminId,
+                        adminIdValid = state.adminIdValid,
+                        onAdminChange = { vm.setAdminId(it) },
+                        onNext = { vm.nextStep() },
+                        onBack = { vm.prevStep() },
+                        isFinishing = state.isFinishing,
+                    )
+                }
             }
         }
     }
 
+}
+
+@Composable
+private fun ErrorCard(message: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Error,
+                null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+    }
 }
 
 // ── Welcome Step ──────────────────────────────────────────────
@@ -100,7 +138,6 @@ private fun WelcomeStep(onNext: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // Bot icon in a rounded surface
         Surface(
             modifier = Modifier.size(100.dp),
             shape = RoundedCornerShape(24.dp),
@@ -126,7 +163,6 @@ private fun WelcomeStep(onNext: () -> Unit) {
 
         Spacer(Modifier.height(36.dp))
 
-        // Feature list
         val features = listOf(
             "接收和管理 Telegram 私聊/群聊消息" to "聊天",
             "关键词匹配 + 自动回复规则" to "规则",
@@ -170,7 +206,6 @@ private fun WelcomeStep(onNext: () -> Unit) {
             Text("开始配置", style = MaterialTheme.typography.titleMedium)
         }
 
-        // Bottom spacer so content isn't stuck to the edge on scroll
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -181,12 +216,12 @@ private fun WelcomeStep(onNext: () -> Unit) {
 private fun TokenStep(
     token: String,
     tokenValid: Boolean,
+    tokenError: String?,
     onTokenChange: (String) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -227,16 +262,24 @@ private fun TokenStep(
                 label = { Text("Bot Token") },
                 placeholder = { Text("1234567890:ABCdefGHIjklMNOpqrsTUVwxyz") },
                 singleLine = true,
-                isError = token.isNotEmpty() && !tokenValid,
-                supportingText = if (token.isNotEmpty() && !tokenValid) {
+                isError = (token.isNotEmpty() && !tokenValid) || tokenError != null,
+                supportingText = if (tokenError != null) {
+                    { Text(tokenError, color = MaterialTheme.colorScheme.error) }
+                } else if (token.isNotEmpty() && !tokenValid) {
                     { Text("Token 格式不正确，应包含 \":\"且长度大于20") }
                 } else if (tokenValid) {
                     { Text("Token 格式有效", color = MaterialTheme.colorScheme.primary) }
                 } else null,
                 trailingIcon = {
                     when {
-                        tokenValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = MaterialTheme.colorScheme.primary)
-                        token.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = MaterialTheme.colorScheme.error)
+                        tokenValid && tokenError == null -> Icon(
+                            Icons.Filled.CheckCircle, "有效",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        token.isNotEmpty() -> Icon(
+                            Icons.Filled.Error, "无效",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
                     }
                 },
                 shape = RoundedCornerShape(12.dp),
@@ -244,7 +287,6 @@ private fun TokenStep(
 
             Spacer(Modifier.height(24.dp))
 
-            // @BotFather instructions card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -307,9 +349,9 @@ private fun AdminStep(
     onAdminChange: (String) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
+    isFinishing: Boolean = false,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -358,8 +400,14 @@ private fun AdminStep(
                 } else null,
                 trailingIcon = {
                     when {
-                        adminIdValid -> Icon(Icons.Filled.CheckCircle, "有效", tint = MaterialTheme.colorScheme.primary)
-                        adminId.isNotEmpty() -> Icon(Icons.Filled.Error, "无效", tint = MaterialTheme.colorScheme.error)
+                        adminIdValid -> Icon(
+                            Icons.Filled.CheckCircle, "有效",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        adminId.isNotEmpty() -> Icon(
+                            Icons.Filled.Error, "无效",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
                     }
                 },
                 shape = RoundedCornerShape(12.dp),
@@ -367,7 +415,6 @@ private fun AdminStep(
 
             Spacer(Modifier.height(24.dp))
 
-            // @userinfobot instructions card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -403,7 +450,7 @@ private fun AdminStep(
 
             Button(
                 onClick = onNext,
-                enabled = adminIdValid,
+                enabled = adminIdValid && !isFinishing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -413,7 +460,19 @@ private fun AdminStep(
                 ),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("下一步", style = MaterialTheme.typography.titleMedium)
+                if (isFinishing) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text("验证中…", style = MaterialTheme.typography.titleMedium)
+                    }
+                } else {
+                    Text("下一步", style = MaterialTheme.typography.titleMedium)
+                }
             }
 
             Spacer(Modifier.height(24.dp))
