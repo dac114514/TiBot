@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "tibot_settings")
 
@@ -19,6 +20,7 @@ class SettingsRepository(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val BOT_TOKEN = stringPreferencesKey("bot_token")
         val ADMIN_ID = longPreferencesKey("admin_id")
+        val ADMIN_IDS = stringPreferencesKey("admin_ids")
         val IS_CONFIGURED = stringPreferencesKey("is_configured")
         val BOT_FIRST_NAME = stringPreferencesKey("bot_first_name")
         val BOT_USERNAME = stringPreferencesKey("bot_username")
@@ -50,6 +52,10 @@ class SettingsRepository(private val context: Context) {
 
     val adminId: Flow<Long> = context.dataStore.data.map { prefs ->
         prefs[Keys.ADMIN_ID] ?: 0L
+    }
+
+    val adminIds: Flow<List<Long>> = context.dataStore.data.map { prefs ->
+        parseAdminIds(prefs[Keys.ADMIN_IDS], prefs[Keys.ADMIN_ID])
     }
 
     val accessMode: Flow<String> = context.dataStore.data.map { prefs ->
@@ -115,5 +121,46 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled.toString() }
+    }
+
+    suspend fun addAdmin(id: Long) {
+        context.dataStore.edit { prefs ->
+            val current = parseAdminIds(prefs[Keys.ADMIN_IDS], prefs[Keys.ADMIN_ID])
+            if (id !in current) {
+                val newList = (current + id).distinct()
+                prefs[Keys.ADMIN_IDS] = encodeAdminIds(newList)
+            }
+        }
+    }
+
+    suspend fun removeAdmin(id: Long) {
+        context.dataStore.edit { prefs ->
+            val current = parseAdminIds(prefs[Keys.ADMIN_IDS], prefs[Keys.ADMIN_ID])
+            val newList = current.filter { it != id }
+            prefs[Keys.ADMIN_IDS] = encodeAdminIds(newList)
+        }
+    }
+
+    suspend fun setAdminIds(ids: List<Long>) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.ADMIN_IDS] = encodeAdminIds(ids.distinct())
+        }
+    }
+
+    private fun parseAdminIds(json: String?, legacySingle: Long?): List<Long> {
+        val fromJson = if (json.isNullOrBlank()) emptyList() else try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).mapNotNull { i ->
+                try { arr.getLong(i) } catch (_: Exception) { null }
+            }
+        } catch (_: Exception) { emptyList() }
+        val fromLegacy = if (legacySingle != null && legacySingle != 0L) listOf(legacySingle) else emptyList()
+        return (fromJson + fromLegacy).distinct()
+    }
+
+    private fun encodeAdminIds(ids: List<Long>): String {
+        val arr = JSONArray()
+        for (id in ids) arr.put(id)
+        return arr.toString()
     }
 }
