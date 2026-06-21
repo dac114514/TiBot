@@ -136,7 +136,7 @@ gh run view <run-id> --repo dac114514/TiBot --log
 
 ### 1. 分析 CI 失败
 - invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + Android 常见 bug 根因库**)
-- 不止贴 stack trace, 找根因 (P1.5 教训)
+- 不止贴 stack trace, 找根因 (通用原则)
 - Android 常见 CI 错误: 依赖解析 / Kotlin 编译 / Compose 编译 / AGP 配置 / 资源合并 / 签名 / 内存 / 网络
 
 ### 2. 报告根因前
@@ -148,6 +148,6 @@ gh run view <run-id> --repo dac114514/TiBot --log
 - 修完由 orchestrator 派发 `android-review` 复审
 - CI 再次验证由你 (`android-build`) 负责 (闭环)
 
-### 4. P1.5 失败教训
-- P1.5 修复中, `android-coder` (opus) 直接写代码没用 `systematic-debugging`, 5 个修复几乎全失败
+### 4. 关键原则
+- 复杂修复中, `android-coder` 直接写代码没用 `systematic-debugging`, 复杂 bug 修复可能全失败
 - 你 (`android-build`) 是 CI 排查, **不写代码**, 所以**必走** `systematic-debugging`, 否则根因分析又会错, 修复又会失败

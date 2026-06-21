@@ -4,16 +4,16 @@
 
 ## TiBot 项目背景
 - 4 个项目 agent (派发执行者):
-  - `orchestrator` (主调度, sonnet 模型) — 唯一派发口
-  - `android-coder` (写代码, opus 模型) — 实施 TDD 写代码
-  - `android-review` (审查, sonnet 模型) — spec 合规 + 质量审查
-  - `android-build` (CI 分析, sonnet 模型, **ask 权限** = 派发前需用户确认) — 监控 CI / 拉 logs
-- P1.5 计划派发参考: `docs/superpowers/plans/2026-06-20-p1.5-remainder-p2-plan.md` §2 (文件冲突矩阵)
+  - `orchestrator` (主调度) — 唯一派发口
+  - `android-coder` (写代码) — 实施 TDD 写代码
+  - `android-review` (审查) — spec 合规 + 质量审查
+  - `android-build` (CI 分析, **ask 权限** = 派发前需用户确认) — 监控 CI / 拉 logs
+- 多 agent 派发计划参考: 见 `docs/superpowers/plans/` 中多 agent 派发计划 §2 (文件冲突矩阵)
 - 当前版本: versionCode=37, versionName="2.2.2"
 - CLAUDE.md 硬性规则: 禁止本地 gradle, 直推 main, 不开 PR, **每次改动递增 versionCode**
 
 ## TiBot 化改动点 vs 原版
-1. **文件冲突矩阵** (新增必填, 决定串/并行) — 同一文件被多 opus 改 → **串行**
+1. **文件冲突矩阵** (新增必填, 决定串/并行) — 同一文件被多 agent 改 → **串行**
 2. **派发指令必含** (原版无, 项目硬性):
    - 目标文件清单 (target_files)
    - 禁止文件清单 (forbidden_files, 防越界)
@@ -21,7 +21,7 @@
    - 关联 spec 路径
    - **version bump 提醒** (CLAUDE.md 硬性)
 3. **CI 任务 ask 权限** (android-build 需要用户确认 — CI 触发可能消耗 GitHub Actions minutes)
-4. **派发前必列矩阵** (防 opus 改同一文件冲突 — P1.5 教训)
+4. **派发前必列矩阵** (防 改同一文件冲突 — 通用原则)
 5. **强引用 4 个项目 agent** (原版用 generic "subagent", 本项目已固定 4 个具名 agent)
 6. **不接受原版 "Multiple dispatch calls in one response"** — 在 TiBot 中派发全部由 `orchestrator` agent 通过 `task` 工具统一发起, 不在主 session 内联
 
@@ -217,16 +217,16 @@ From debugging session (2025-10-03):
 
 ## TiBot 派发矩阵模板（必填）
 
-派发前, **必**列出所有 subagent 的目标文件, 形成矩阵 (参考 P1.5 计划 §2):
+派发前, **必**列出所有 subagent 的目标文件, 形成矩阵 (参考 多 agent 派发计划 §2):
 
-| opus | MainAct | NavH | TopB | Input | Screens | VM | BotCl | Upd | Store | ... |
+| agent | MainAct | NavH | TopB | Input | Screens | VM | BotCl | Upd | Store | ... |
 |------|---------|------|------|-------|---------|----|----|----|---|---|
 | 1    | ✏️      | ✏️   | —    | —     | ✏️      | —  | —    | —  | —  | ... |
 | 2    | —       | —    | —    | —     | —        | ✏️ | ✏️   | ✏️ | ✏️ | ... |
 | 3    | —       | —    | ✏️   | —     | ✏️      | —  | —    | —  | —  | ... |
 
 **判定规则** (项目硬性):
-- 同一文件被多个 opus 改 → **串行** (后一个等前一个 CI 绿)
+- 同一文件被多个 改 → **串行** (后一个等前一个 CI 绿)
 - 不同文件 → 可**并行** (但仍由 orchestrator 派发)
 - 互相无依赖 → 完全并行
 - ❌ **禁止**主 session 内联派发 (绕过 orchestrator)
@@ -243,20 +243,20 @@ acceptance_criteria:
   - <可测量的标准 2>
 related_spec: docs/superpowers/specs/...
 version_bump_reminder: true  # CLAUDE.md 硬性, 每次改动必做
-agent_model: <opus|sonnet>  # 显式指定, 不继承 session
+agent_model: <model-id>  # 显式指定, 不继承 session
 ci_required: true  # 改完必走 CI, 禁本地 gradle
 ```
 
-**示例** (android-coder, opus):
+**示例** (android-coder):
 
 ```yaml
 agent: android-coder
-model: opus
+model: <model-id>
 target_files:
   - app/src/main/java/com/faster/tibot/ui/chat/ChatScreen.kt
   - app/src/main/java/com/faster/tibot/ui/chat/Bubble.kt
 forbidden_files:
-  - app/src/main/java/com/faster/tibot/ui/chat/MainActivity.kt  # opus 2 改
+  - app/src/main/java/com/faster/tibot/ui/chat/MainActivity.kt  # agent 2 改
   - app/src/main/java/com/faster/tibot/data/Store.kt
 acceptance_criteria:
   - 气泡宽度自适应内容, 不再固定 max
@@ -270,16 +270,16 @@ ci_required: true
 ## 与项目 agent 互调
 
 - **派发统一口** → 由 `orchestrator` agent 调用 `task` 工具派发 (不在主 session 内联)
-- **android-coder** (opus) → 写代码, 实施 TDD + systematic-debugging
-- **android-review** (sonnet) → 审查 spec 合规 + 质量
-- **android-build** (sonnet, **ask 权限**) → 派发前需用户确认 (CI 触发有成本)
+- **android-coder** → 写代码, 实施 TDD + systematic-debugging
+- **android-review** → 审查 spec 合规 + 质量
+- **android-build** (**ask 权限**) → 派发前需用户确认 (CI 触发有成本)
 - **审查/收尾链** → android-review → orchestrator → finishing-a-development-branch
 
-## 关键防错点（防 P1.5 重演）
+## 关键防错点
 
-- ❌ **不要**跳过文件冲突矩阵 → 派发前必填, 防 opus 改同一文件
+- ❌ **不要**跳过文件冲突矩阵 → 派发前必填, 防 改同一文件
 - ❌ **不要**让主 session 内联派发 → 一律走 orchestrator
-- ❌ **不要**漏 `target_files` / `forbidden_files` → 防 opus 越界
+- ❌ **不要**漏 `target_files` / `forbidden_files` → 防 越界
 - ❌ **不要**漏 `version_bump_reminder: true` → CLAUDE.md 硬性
 - ❌ **不要**让 android-build 自动触发 → 必须用户确认
 - ✅ **每个派发指令**必含 5 字段: target_files / forbidden_files / acceptance_criteria / related_spec / version_bump_reminder

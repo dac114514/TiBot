@@ -5,7 +5,7 @@
 ## TiBot 项目背景
 - 仓库: github.com/dac114514/TiBot
 - 当前版本: code=37, name="2.2.2"
-- P1.5 失败教训: opus 报告 done 时没真实验证修复是否生效, 用户实测"几乎都没修好"
+- 历史失败教训: agent 报告 done 时如不真实验证修复是否生效, 修复可能未生效
 - → 本 skill 强制: "报告 done" 之前, 必须走完 Android 专属验证清单
 
 ## TiBot 化改动点 vs 原版

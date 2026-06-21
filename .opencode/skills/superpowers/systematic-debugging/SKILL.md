@@ -9,13 +9,13 @@
 - 当前版本: versionCode=37, versionName="2.2.2"
 - CI: GitHub Actions (`.github/workflows/android.yml`), 跑 `./gradlew assembleDebug --no-daemon --stacktrace`
 - CLAUDE.md 硬性规则: 禁止本地 gradle, 直推 main, 每次改动递增 versionCode
-- **P1.5 失败教训** (来自 STATE-2026-06-20): opus 曾因根因分析错误导致 5 个修复几乎全失败 (用户实测"几乎都没修好"), 必须强制多根因验证
+- **历史失败教训** (来自 历史 STATE 文档): agent 曾因根因分析错误导致 复杂 bug 修复可能全失败 (修复可能未生效), 必须强制多根因验证
 
 ## TiBot 化改动点 vs 原版
 1. **Android 专属根因库** (新增章节 "Android 常见 bug 根因")
-2. **强制列 ≥3 根因流程** (新增, 防止 P1.5 重演)
+2. **强制列 ≥3 根因流程** (新增, 防止 历史 重演)
 3. **CI 失败时调用 android-build subagent** (skill 显式引用 agent)
-4. **P1.5 失败教训** (放在背景章节, 作为警示)
+4. **历史失败教训** (放在背景章节, 作为警示)
 
 ---
 
@@ -333,7 +333,7 @@ From debugging sessions:
 
 ## TiBot 化强制根因分析流程
 
-**不**止 patch 表面症状。P1.5 失败教训: opus 修了 5 个问题, 但根因分析有误, 用户实测"几乎都没修好"。
+**不**止 patch 表面症状。复杂修复如不强制多根因验证, 容易全失败。
 
 每次 debug 必走:
 1. **重现 bug** (确认能复现, 记录复现条件)

@@ -117,7 +117,7 @@ permission:
   - [ ] 回归测试
   - [ ] android-review 已通过 (本次审查)
   - [ ] 没有残留 issue
-- 不漏看, **不放过残留** (P1.5 教训)
+- 不漏看, **不放过残留** (通用原则)
 
 ### 3. 发现具体 bug 时
 - invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因分析**, 查 Android bug 根因库)

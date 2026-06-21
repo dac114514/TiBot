@@ -8,7 +8,7 @@
 - 当前版本: versionCode=37, versionName="2.2.2"
 - CI: GitHub Actions, 直推 main
 - 现有 spec/plans: 全部在 `docs/superpowers/specs/` 和 `docs/superpowers/plans/` (项目已有约定)
-- P1.5 教训: 5 个修复几乎全失败, 因为缺乏 systematic-debugging + 强根因分析
+- 通用原则: 复杂修复如不强制 systematic-debugging + 多根因验证, 可能全部失败
 - **versionCode/versionName bump 硬性规则** (CLAUDE.md): 每次修复/更新必须递增 versionCode 并更新 versionName
 
 ## TiBot 化改动点 vs 原版

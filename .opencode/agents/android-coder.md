@@ -122,7 +122,7 @@ permission:
 
 ### 2. 调试时
 - 遇到 bug → invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + 验证 + 排除流程**)
-- 不止 patch 表面, 找根因 (P1.5 教训: opus 曾 5 个修复几乎全失败, 因根因分析错)
+- 不止 patch 表面, 找根因 (通用原则: 复杂修复如不系统排查根因, 容易全失败)
 - 查 `systematic-debugging` (TiBot 化) 内的 **Android 常见 bug 根因库**
 
 ### 3. 报告完成前
@@ -145,5 +145,5 @@ permission:
 
 ### 5. 并行派发时 (多 android-coder)
 - 遵守 `superpowers/dispatching-parallel-agents` (TiBot 化) 的**文件冲突矩阵**
-- 同一文件被多个 opus 改 → 串行 (后等前 CI 通过)
+- 同一文件被多个 改 → 串行 (后等前 CI 通过)
 - 不同文件 → 可并行

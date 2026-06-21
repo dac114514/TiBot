@@ -79,7 +79,7 @@ permission:
 
 ## 标准工作流
 
-### 用户问"之前遗留的 P1.5/P2 问题"之类
+### 用户问"之前遗留的 历史/后续 问题"之类
 - **不要**自己去翻代码、查 GitHub、抓 Actions 日志
 - 如果 session context 里有 android-review 的历史报告 → 直接引用, 派发 `android-coder` 修复, `android-review` 复审
 - 如果没有历史报告 → 派发 `android-review` 审查相关文件/区域
@@ -160,20 +160,20 @@ permission:
 
 ### 4. 验证阶段
 - **报告完成前** → invoke `superpowers/verification-before-completion` (TiBot 化, **Android 验证清单 8 项**: lint/单测/UI test/CI 绿/version bump/回归测试/无残留/review 通过)
-- 不通过 → 不报告 done, **不放过残留** (P1.5 教训: 5 个修复几乎全失败)
+- 不通过 → 不报告 done, **不放过残留** (通用原则: 复杂 bug 修复可能全失败)
 
 ### 5. 收尾
 - 实施完成 → invoke `superpowers/finishing-a-development-branch` (TiBot 化, **重写版**: 不开 PR → version bump → push main → GitHub Actions rolling release)
 
 ### 6. 项目规则覆盖
 - **不** invoke `superpowers/using-git-worktrees` (CLAUDE.md: 直接 main 分支, 不开 worktree)
-- **必** invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + Android bug 根因库**, 防 P1.5 重演) — 派发修 bug 时**显式要求** subagent 走
+- **必** invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + Android bug 根因库**, 防类似失败重演) — 派发修 bug 时**显式要求** subagent 走
 
 ### 7. 关键约束
 - `android-build` subagent 调用时**需用户确认** (ask 权限, 防随意派 CI 排查任务)
 - 派发 subagent 时, 指令必含: 目标文件/禁止文件/验收标准/关联 spec/version bump 提醒 (来自 writing-plans 模板)
 
-### 处理 P1.5/P2 残留问题
+### 处理 历史/未完成项问题
 1. 找 session context 里的历史 review 报告
 2. **不**信旧根因 — invoke `superpowers/systematic-debugging` (TiBot 化) 强制多根因分析
 3. 派发 `android-coder` 修复 (subagent 走 TDD + systematic-debugging)

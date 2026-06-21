@@ -4,10 +4,10 @@
 
 ## TiBot 项目背景
 - 4 个项目 agent (派发执行者):
-  - `orchestrator` (主调度, sonnet) — 唯一派发口
-  - `android-coder` (写代码, opus) — 实施 TDD 写代码
-  - `android-review` (审查, sonnet) — spec 合规 + 质量审查
-  - `android-build` (CI 分析, sonnet, **ask 权限**) — 监控 CI / 拉 logs
+  - `orchestrator` (主调度) — 唯一派发口
+  - `android-coder` (写代码) — 实施 TDD 写代码
+  - `android-review` (审查) — spec 合规 + 质量审查
+  - `android-build` (CI 分析, **ask 权限**) — 监控 CI / 拉 logs
 - 实施流程: orchestrator 接收 plan → android-coder 写 → android-review 审 → 修复循环 → version bump → push main → android-build CI 验证 → 收尾
 - CLAUDE.md 硬性规则:
   - **不开 worktree** (直接 main 分支)
@@ -15,7 +15,7 @@
   - **禁本地 gradle** (走 GitHub Actions CI)
   - **每次改动递增 versionCode + 更新 versionName**
 - 当前版本: versionCode=37, versionName="2.2.2"
-- **P1.5 失败教训**: opus 修 5 个问题, 根因分析有误, 用户实测"几乎都没修好"
+- **历史失败教训**: 修 5 个问题, 根因分析有误, 修复可能未生效
   → 强制 `superpowers/systematic-debugging` (TiBot 化) 在每轮修复中走根因分析
   → 强制 `superpowers/verification-before-completion` (TiBot 化) 在每轮 done 前验证
 
@@ -23,8 +23,8 @@
 1. **实施流程针对 4 个 TiBot agent** (不用原版 generic "subagent" / `implementer-prompt.md`)
 2. **version bump 在收尾阶段** (android-coder 写完代码, commit 前必做, CLAUDE.md 硬性)
 3. **CI 验证必经 android-build** (不依赖本地 gradle, 不允许本地构建)
-4. **强引用 verification-before-completion** 作为最后一步 (防 P1.5 残留)
-5. **强引用 systematic-debugging** 防 P1.5 重演 (每轮修复必走)
+4. **强引用 verification-before-completion** 作为最后一步 (防类似 残留)
+5. **强引用 systematic-debugging** 防类似失败重演 (每轮修复必走)
 6. **不开 worktree, 不开 PR** (原版默认开 worktree + 开 PR, 与 TiBot CLAUDE.md 冲突)
 7. **单一主 session** — orchestrator agent 派发, 不在主 session 内联 (原版允许主 session 直接调)
 8. **dispatch 必带 5 字段** (target_files / forbidden_files / acceptance_criteria / related_spec / version_bump_reminder)
@@ -459,14 +459,14 @@ Done!
    → invoke superpowers/writing-plans (TiBot 化) 重读 plan
    → 生成文件冲突矩阵 + 派发指令模板
    ↓
-2. 派 android-coder (opus) 写代码 [并行按矩阵判定]
+2. 派 android-coder 写代码 [并行按矩阵判定]
    → 写前 invoke: superpowers/test-driven-development (TiBot 化)
-   → 调试 invoke: superpowers/systematic-debugging (TiBot 化) ← 防 P1.5 重演
+   → 调试 invoke: superpowers/systematic-debugging (TiBot 化) ← 防类似失败重演
    → dispatch 必含 5 字段: target_files / forbidden_files / acceptance_criteria / related_spec / version_bump_reminder
    ↓
-3. 派 android-review (sonnet) 审查
+3. 派 android-review 审查
    → 审查前 invoke: superpowers/verification-before-completion (TiBot 化) 准备清单
-   → 发现 bug invoke: superpowers/systematic-debugging (TiBot 化, 找根因) ← 防 P1.5 重演
+   → 发现 bug invoke: superpowers/systematic-debugging (TiBot 化, 找根因) ← 防类似失败重演
    ↓
 4. 有问题 → 回到 2 修
    ↓
@@ -478,7 +478,7 @@ Done!
    ↓
 7. commit + push main (CLAUDE.md: 不开 PR, 不开 worktree)
    ↓
-8. 派 android-build (sonnet, ask 权限 = 用户确认) 监控 CI
+8. 派 android-build (, ask 权限 = 用户确认) 监控 CI
    → CI 绿 → 收尾
    → CI 红 → invoke superpowers/systematic-debugging + 回到 2
    ↓
@@ -490,23 +490,23 @@ Done!
 
 | 阶段 | agent | 模型 | 调用的 skill | dispatch 5 字段 |
 |---|---|---|---|---|
-| 写代码 | android-coder | opus | TDD, systematic-debugging | ✅ 必填 |
-| 审查 | android-review | sonnet | verification-before-completion, systematic-debugging | ✅ 必填 |
-| 修问题 | android-coder | opus | TDD, systematic-debugging | ✅ 必填 |
-| version bump | android-coder | opus | (CLAUDE.md 硬性) | ✅ 必填 |
-| 监控 CI | android-build | sonnet, **ask** | finishing-a-development-branch | ✅ 必填 |
-| 收尾报告 | orchestrator | sonnet | finishing-a-development-branch | (无, orchestrator 自身) |
+| 写代码 | android-coder | (主代码 agent) | TDD, systematic-debugging | ✅ 必填 |
+| 审查 | android-review | (主审查 agent) | verification-before-completion, systematic-debugging | ✅ 必填 |
+| 修问题 | android-coder | (主代码 agent) | TDD, systematic-debugging | ✅ 必填 |
+| version bump | android-coder | (主代码 agent) | (CLAUDE.md 硬性) | ✅ 必填 |
+| 监控 CI | android-build | (主 CI agent, ask 权限) | finishing-a-development-branch | ✅ 必填 |
+| 收尾报告 | orchestrator |  | finishing-a-development-branch | (无, orchestrator 自身) |
 
 **派发统一口**: 所有 `task` 调用都从 `orchestrator` agent 发出, **不**在主 session 内联。
 
-## 关键防错点（防 P1.5 重演）
+## 关键防错点
 
-- ❌ **不要**跳过 systematic-debugging → 用户报告"几乎都没修好"的根因 (P1.5 教训)
+- ❌ **不要**跳过 systematic-debugging → 用户报告"修复未生效"的根因 (通用原则)
 - ❌ **不要**跳过 version bump → CLAUDE.md 硬性, 每次改动必做
 - ❌ **不要**用本地 gradle → 一律走 CI, 一切验证在 CI 里
 - ❌ **不要**开 worktree / 开 PR → CLAUDE.md: 直接 main
 - ❌ **不要**让主 session 内联派发 → 一律走 orchestrator
-- ❌ **不要**漏 dispatch 5 字段 → 防 opus 越界 + 防漏 version bump
+- ❌ **不要**漏 dispatch 5 字段 → 防 越界 + 防漏 version bump
 - ✅ **每个改动**都必走 systematic-debugging + verification-before-completion
 - ✅ **每个派发**都必含 5 字段 + 显式 model 声明
 - ✅ **每轮修复**都必查根因 (≥3 根因列表), 不放过残留

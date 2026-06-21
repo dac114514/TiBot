@@ -4,8 +4,8 @@
 
 ## TiBot 项目背景
 - 计划路径: `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md` (项目已有约定)
-- 现有计划参考: `docs/superpowers/plans/2026-06-20-p1.5-remainder-p2-plan.md` 了解项目派发风格
-- 派发粒度: 一个 opus agent 一组连续文件, **不能跨 opus 改同一文件** (参考 P1.5 计划 §2 文件冲突矩阵)
+- 现有计划参考: 见 `docs/superpowers/plans/` 中多 agent 派发计划了解项目风格
+- 派发粒度: 一个 agent 一组连续文件, **不能跨 agent 改同一文件** (参考 多 agent 派发计划 §2 文件冲突矩阵)
 - 当前版本: versionCode=37, versionName="2.2.2"
 - **versionCode bump 硬性规则** (CLAUDE.md): 每次修复/更新必须递增 versionCode 并更新 versionName
 
@@ -17,7 +17,7 @@
    - 验收标准
    - 关联 spec 路径
    - version bump 提醒
-3. **文件冲突矩阵必填** (参考 P1.5 计划 §2 风格)
+3. **文件冲突矩阵必填** (参考 多 agent 派发计划 §2 风格)
 4. **强引用 4 个项目 agent**
 
 ---
@@ -214,19 +214,19 @@ After saving the plan, offer execution choice:
 
 ## 文件冲突矩阵（必填）
 
-| opus | File1 | File2 | File3 | ... |
+| agent | File1 | File2 | File3 | ... |
 |------|-------|-------|-------|-----|
 | 1    | ✏️    | —     | ✏️    | ... |
 | 2    | —     | ✏️    | —     | ... |
 
-依赖: opus 1 → 必先于 opus 2 (改同文件)
+依赖: agent 1 → 必先于 agent 2 (改同文件)
 
-## 派发指令模板（每个 opus 必填）
+## 派发指令模板（每个 agent 必填）
 
-### opus N: [任务名]
+### agent N: [任务名]
 
 **目标文件**: [精确路径列表]
-**禁止文件**: [其他 opus 改的文件, 避免冲突]
+**禁止文件**: [其他 改的文件, 避免冲突]
 **验收标准**:
 - [ ] [可测量的标准 1]
 - [ ] [可测量的标准 2]
@@ -237,6 +237,6 @@ After saving the plan, offer execution choice:
 ## 与项目 agent 互调
 
 - 派发时由 `orchestrator` agent 调用 `task` 工具
-- opus 任务 → `android-coder` subagent (opus 模型)
-- 审查任务 → `android-review` subagent (sonnet 模型)
-- CI 任务 → `android-build` subagent (sonnet 模型, ask 权限)
+- 代码任务 → `android-coder` subagent
+- 审查任务 → `android-review` subagent
+- CI 任务 → `android-build` subagent (, ask 权限)
