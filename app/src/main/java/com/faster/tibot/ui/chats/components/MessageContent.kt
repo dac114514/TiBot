@@ -2,6 +2,7 @@ package com.faster.tibot.ui.chats.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
@@ -38,7 +39,7 @@ import com.faster.tibot.ui.theme.LocalTgBubbleColors
 import java.io.File
 
 @Composable
-fun MessageContent(message: ChatMessage) {
+fun BoxScope.MessageContent(message: ChatMessage) {
     when (message.mediaType) {
         "photo" -> PhotoContent(message)
         "video", "video_note", "animation" -> VideoContent(message)
@@ -50,7 +51,7 @@ fun MessageContent(message: ChatMessage) {
 }
 
 @Composable
-private fun TextContent(message: ChatMessage) {
+private fun BoxScope.TextContent(message: ChatMessage) {
     val bubbles = LocalTgBubbleColors.current
     val textColor = if (message.isOutgoing) bubbles.outgoingText else bubbles.incomingText
     val timeColor = if (message.isOutgoing) bubbles.outgoingTime else bubbles.incomingTime
@@ -64,10 +65,14 @@ private fun TextContent(message: ChatMessage) {
         )
     }
     if (message.time.isNotEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
+        // R0-E: 用 align(BottomEnd) 替代 fillMaxWidth,避免把外层 BubbleShell 撑到 280dp。
+        // BubbleShell 是 wrap content 的 Box;内部子项 fillMaxWidth 会让它报告父级
+        // maxWidth 作为自己的宽度,导致短消息气泡也被撑宽。BottomEnd 让 TimeText
+        // 显示在气泡右下角(类似 Telegram/微信),长消息时 TimeText 覆盖 Text 右下角
+        // (与原 Box(fillMaxWidth, contentAlignment=CenterEnd) 行为接近,只是位置从
+        // "右上偏中"改为"右下角")。短消息时 TimeText 与 Text 底部 10dp 视觉重叠,
+        // 但比撑宽 280dp 更合理。
+        Box(modifier = Modifier.align(Alignment.BottomEnd)) {
             Text(
                 text = message.time,
                 style = MaterialTheme.typography.labelSmall,

@@ -57,6 +57,12 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
                 _botClient.value = TelegramBotClient(token)
             }
         }
+        // 数据迁移: 回填旧 ChatSummary 中空白的 chatTitle / avatarLetter
+        // 幂等 — MessageStore 内部用 DataStore 标记只跑一次
+        viewModelScope.launch {
+            runCatching { messageStore.migrateChatTitles() }
+                .onFailure { Log.e(TAG, "migrateChatTitles failed", it) }
+        }
     }
 
     val chats: StateFlow<List<ChatSummary>> = messageStore.getAllChatsFlow()

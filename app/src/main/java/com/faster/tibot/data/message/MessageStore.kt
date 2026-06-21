@@ -1,6 +1,7 @@
 package com.faster.tibot.data.message
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
@@ -62,6 +63,10 @@ class MessageStore(private val context: Context) {
         val CHAT_LIST = stringPreferencesKey("chat_list")
 
         fun chatMessages(chatId: Long) = stringPreferencesKey("chat_msgs_$chatId")
+    }
+
+    private object MigrationKeys {
+        val CHAT_TITLES_DONE = stringPreferencesKey("migration_chat_titles_done")
     }
 
     suspend fun saveMessage(msg: TelegramMessage, isCurrentUserAdmin: Boolean = false) {
@@ -177,6 +182,92 @@ class MessageStore(private val context: Context) {
             )
         }
         return result
+    }
+
+    /**
+     * 数据迁移: 回填已存 ChatSummary 中空白的 chatTitle / avatarLetter。
+     *
+     * 背景: P1.5 修复在 TelegramBotClient.parseMessage 中加了 chatTitle 的 takeIf 链,
+     * 只对新消息生效。修复前已存的 ChatSummary.chatTitle 仍可能为空,导致用户看到
+     * 头像"?"和"聊天"占位。
+     *
+     * 策略: 遍历 chat_list,对每个 chatTitle 为空的 summary,扫描
+     * chat_msgs_{chatId} 中所有消息,挑 chatTitle 非空且 date 最大的那条回填。
+     *
+     * 幂等: 通过 MigrationKeys.CHAT_TITLES_DONE 标记,每个 DataStore 只跑一次。
+     */
+    suspend fun migrateChatTitles() {
+        var migrated = 0
+        var scanned = 0
+
+        context.messageDataStore.edit { prefs ->
+            // 幂等检查放在 edit 块内部,防止两个并发调用都通过标志位检查后同时进入迁移逻辑
+            if (prefs[MigrationKeys.CHAT_TITLES_DONE] == "true") {
+                return@edit
+            }
+
+            val chatListStr = prefs[Keys.CHAT_LIST] ?: "[]"
+            val chatListArr = try {
+                JSONArray(chatListStr)
+            } catch (_: Exception) {
+                JSONArray()
+            }
+            val updatedList = JSONArray()
+            for (i in 0 until chatListArr.length()) {
+                val item = chatListArr.optJSONObject(i) ?: continue
+                val chatId = item.optLong("chatId", 0L)
+                if (chatId == 0L) {
+                    updatedList.put(item)
+                    continue
+                }
+                scanned++
+                val currentTitle = item.optString("chatTitle", "")
+                if (currentTitle.isNotBlank()) {
+                    updatedList.put(item)
+                    continue
+                }
+                // 从消息里挑一条 chatTitle 非空且 date 最大的
+                val msgKey = Keys.chatMessages(chatId)
+                val raw = prefs[msgKey] ?: "[]"
+                val msgsArr = try {
+                    JSONArray(raw)
+                } catch (_: Exception) {
+                    JSONArray()
+                }
+                var bestTitle: String? = null
+                var bestDate = -1L
+                for (j in 0 until msgsArr.length()) {
+                    val m = msgsArr.optJSONObject(j) ?: continue
+                    val title = m.optString("chatTitle", "")
+                    if (title.isNotBlank()) {
+                        val date = m.optLong("date", 0L)
+                        if (date >= bestDate) {
+                            bestDate = date
+                            bestTitle = title
+                        }
+                    }
+                }
+                if (bestTitle != null) {
+                    val newItem = JSONObject(item.toString())
+                    newItem.put("chatTitle", bestTitle)
+                    newItem.put("avatarLetter", bestTitle.firstOrNull()?.uppercaseChar() ?: '?')
+                    updatedList.put(newItem)
+                    migrated++
+                } else {
+                    updatedList.put(item)
+                }
+            }
+            if (migrated > 0) {
+                prefs[Keys.CHAT_LIST] = updatedList.toString()
+            }
+            // 无论是否有数据迁移,都标记为已执行 — 避免每次启动都扫描
+            prefs[MigrationKeys.CHAT_TITLES_DONE] = "true"
+        }
+
+        Log.i(
+            "MessageStore",
+            "migrateChatTitles: scanned=$scanned migrated=$migrated",
+        )
     }
 
     suspend fun updateLocalFilePath(chatId: Long, messageId: Long, path: String) {

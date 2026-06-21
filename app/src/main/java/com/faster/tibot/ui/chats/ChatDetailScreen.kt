@@ -63,6 +63,18 @@ fun ChatDetailScreen(
     val scope = rememberCoroutineScope()
     var showScrollToBottom by remember { mutableStateOf(false) }
 
+    // 消费端 fallback: 如果 ChatSummary.chatTitle 为空(P1.5 修复前的旧数据),
+    // 从消息列表里挑最后一条非空 senderName 作为兜底显示,
+    // 避免用户看到"?"和"聊天"占位。
+    val chatTitle = remember(chat, messages) {
+        chat?.chatTitle?.takeIf { it.isNotBlank() }
+            ?: messages.lastOrNull { it.senderName.isNotBlank() }?.senderName
+            ?: "聊天"
+    }
+    val chatAvatarLetter = remember(chatTitle) {
+        chatTitle.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    }
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
@@ -83,8 +95,8 @@ fun ChatDetailScreen(
             .imePadding(),
     ) {
         ChatTopBar(
-            chatTitle = chat?.chatTitle ?: "聊天",
-            chatAvatarLetter = chat?.avatarLetter?.toString() ?: "?",
+            chatTitle = chatTitle,
+            chatAvatarLetter = chatAvatarLetter,
             chatId = chatId,
             isOnline = true,
             onBack = onBack,

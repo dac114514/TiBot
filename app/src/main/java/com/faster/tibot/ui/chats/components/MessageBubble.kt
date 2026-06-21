@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -97,7 +98,10 @@ fun MessageBubble(
                         )
                     }
 
-                    BubbleShell(message = message) {
+                    BubbleShell(
+                        modifier = Modifier.wrapContentWidth(),
+                        message = message,
+                    ) {
                         MessageContent(message = message)
                     }
 
@@ -168,7 +172,8 @@ private fun AutoReplyBadge() {
 @Composable
 private fun BubbleShell(
     message: ChatMessage,
-    content: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
 ) {
     val bubbles = LocalTgBubbleColors.current
     val isMine = message.isOutgoing
@@ -182,7 +187,7 @@ private fun BubbleShell(
     val border = if (!isMine) bubbles.incomingBorder else Color.Transparent
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .widthIn(max = 280.dp)
             .clip(shape)
             .background(bg)

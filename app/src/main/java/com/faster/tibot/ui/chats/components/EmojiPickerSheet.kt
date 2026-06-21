@@ -47,7 +47,7 @@ fun EmojiPickerSheet(
     onDismiss: () -> Unit,
     onEmojiSelected: (String) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
     ModalBottomSheet(

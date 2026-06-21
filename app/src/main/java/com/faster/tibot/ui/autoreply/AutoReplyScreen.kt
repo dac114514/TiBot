@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,7 +39,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -159,10 +158,13 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
         TestRuleDialog(vm = vm, onDismiss = { showTestDialog = false })
     }
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text("自动回复", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -223,50 +225,51 @@ fun AutoReplyScreen(vm: AutoReplyViewModel = viewModel()) {
                     }
                 },
             )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("添加") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-        ) {
-            Spacer(Modifier.height(8.dp))
 
-            SearchBar(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Spacer(Modifier.height(8.dp))
 
-            Spacer(Modifier.height(12.dp))
+                SearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                )
 
-            if (filteredRules.isEmpty()) {
-                EmptyState(hasSearch = searchQuery.text.isNotBlank())
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(filteredRules, key = { it.ruleId }) { rule ->
-                        RuleCard(
-                            rule = rule,
-                            onClick = { editingRule = rule },
-                            onToggle = { vm.toggleRule(rule.ruleId) },
-                            onDelete = { deletingRule = rule },
-                        )
+                Spacer(Modifier.height(12.dp))
+
+                if (filteredRules.isEmpty()) {
+                    EmptyState(hasSearch = searchQuery.text.isNotBlank())
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(filteredRules, key = { it.ruleId }) { rule ->
+                            RuleCard(
+                                rule = rule,
+                                onClick = { editingRule = rule },
+                                onToggle = { vm.toggleRule(rule.ruleId) },
+                                onDelete = { deletingRule = rule },
+                            )
+                        }
+                        item { Spacer(Modifier.height(80.dp)) }
                     }
-                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
         }
+
+        ExtendedFloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .navigationBarsPadding(),
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = { Text("添加") },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        )
     }
 }
 
