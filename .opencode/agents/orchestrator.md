@@ -143,34 +143,41 @@ permission:
 
 ## superpowers 集成（必走流程）
 
+> **项目级 superpowers skills** (`.opencode/skills/superpowers/`) 自动覆盖同名 global skills, 加载时自带 TiBot 项目背景。下面 invoke 全部走项目级 TiBot 化版本。
+
 接到任何任务, 按以下顺序走 superpowers 流程:
 
 ### 1. 创意/设计阶段
-- **新功能/新组件/UI 设计** → 必先 invoke superpowers/brainstorming 对齐目标和边界
+- **新功能/新组件/UI 设计** → invoke `superpowers/brainstorming` (TiBot 化, spec 写到 `docs/superpowers/specs/`)
 - 不要直接派 subagent 写代码 — 先出设计、获用户批准
 
 ### 2. 规划阶段
-- **>2 步任务** → invoke superpowers/writing-plans 写实施计划
-- 计划列: 每步做什么、谁做、验收标准
+- **>2 步任务** → invoke `superpowers/writing-plans` (TiBot 化, 必含派发指令模板: 目标文件/禁止文件/验收标准/version bump 提醒/文件冲突矩阵)
 
 ### 3. 调度阶段
-- 独立任务 → invoke superpowers/dispatching-parallel-agents 评估能否并行
-- 实施计划 → invoke superpowers/subagent-driven-development 指导 subagent
+- 独立任务 → invoke `superpowers/dispatching-parallel-agents` (TiBot 化, **必先列文件冲突矩阵再派**)
+- 实施计划 → invoke `superpowers/subagent-driven-development` (TiBot 化, **9 步流程**: coder 写 → review 审 → 修 → version bump → push → CI 验证 → 收尾)
 
 ### 4. 验证阶段
-- **报告完成前** → invoke superpowers/verification-before-completion 自查
-- 不通过 → 不报告 done
+- **报告完成前** → invoke `superpowers/verification-before-completion` (TiBot 化, **Android 验证清单 8 项**: lint/单测/UI test/CI 绿/version bump/回归测试/无残留/review 通过)
+- 不通过 → 不报告 done, **不放过残留** (P1.5 教训: 5 个修复几乎全失败)
 
 ### 5. 收尾
-- 实施完成 → invoke superpowers/finishing-a-development-branch 走收尾
+- 实施完成 → invoke `superpowers/finishing-a-development-branch` (TiBot 化, **重写版**: 不开 PR → version bump → push main → GitHub Actions rolling release)
 
 ### 6. 项目规则覆盖
-- **不** invoke superpowers/using-git-worktrees(用户 CLAUDE.md: 直接 main 分支, 不开 worktree)
-- 其他 superpowers skills 优先于默认行为
+- **不** invoke `superpowers/using-git-worktrees` (CLAUDE.md: 直接 main 分支, 不开 worktree)
+- **必** invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + Android bug 根因库**, 防 P1.5 重演) — 派发修 bug 时**显式要求** subagent 走
+
+### 7. 关键约束
+- `android-build` subagent 调用时**需用户确认** (ask 权限, 防随意派 CI 排查任务)
+- 派发 subagent 时, 指令必含: 目标文件/禁止文件/验收标准/关联 spec/version bump 提醒 (来自 writing-plans 模板)
 
 ### 处理 P1.5/P2 残留问题
 1. 找 session context 里的历史 review 报告
-2. 派发 ndroid-coder 修复 (subagent 自己走 TDD + systematic-debugging)
-3. 派发 ndroid-review 复审 (subagent 走 verification-before-completion)
-4. 自己 invoke superpowers/verification-before-completion 整体确认
-5. 不 pass → 继续修, 不放过
+2. **不**信旧根因 — invoke `superpowers/systematic-debugging` (TiBot 化) 强制多根因分析
+3. 派发 `android-coder` 修复 (subagent 走 TDD + systematic-debugging)
+4. 派发 `android-review` 复审 (subagent 走 verification + systematic-debugging)
+5. 派发 `android-build` 验证 CI (ask 权限, 用户确认)
+6. 自己 invoke `superpowers/verification-before-completion` 整体确认
+7. 不 pass → 回到 3 继续修, **不放过**

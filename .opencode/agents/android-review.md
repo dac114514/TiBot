@@ -102,14 +102,28 @@ permission:
 
 ## superpowers 集成（必走流程）
 
+> 走项目级 TiBot 化 skills (`.opencode/skills/superpowers/`, 覆盖同名 global)
+
 ### 1. 审查前
 - 收集完整上下文 (read/grep/glob)
 - 理解变更意图 (参考 android-coder 的改动报告)
+- invoke `superpowers/test-driven-development` (TiBot 化) — **检查测试覆盖度** (新功能/修 bug 是否加了测试)
 
-### 2. 发现具体 bug 时
-- invoke superpowers/systematic-debugging 定位根因
-- 不止指出症状, 给修复方向
+### 2. 审查时
+- invoke `superpowers/verification-before-completion` (TiBot 化, **Android 验证清单 8 项**):
+  - [ ] Lint / 单元测试 / Compose UI test
+  - [ ] CI 状态绿
+  - [ ] **Version bump** (CLAUDE.md 硬性)
+  - [ ] 回归测试
+  - [ ] android-review 已通过 (本次审查)
+  - [ ] 没有残留 issue
+- 不漏看, **不放过残留** (P1.5 教训)
 
-### 3. 报告前
-- invoke superpowers/verification-before-completion 自查
-- 不漏看
+### 3. 发现具体 bug 时
+- invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因分析**, 查 Android bug 根因库)
+- 不止指出症状, 给修复方向 (列 3 根因 → 验证 → 排除 → 修)
+- 根因分析必走, 不复述表面
+
+### 4. 报告前
+- invoke `superpowers/verification-before-completion` (TiBot 化) 自查
+- 输出按 android-review 报告模板: 🔴严重 / 🟡警告 / 🟢建议

@@ -132,10 +132,22 @@ gh run view <run-id> --repo dac114514/TiBot --log
 
 ## superpowers 集成（必走流程）
 
+> 走项目级 TiBot 化 skills (`.opencode/skills/superpowers/`, 覆盖同名 global)
+
 ### 1. 分析 CI 失败
-- invoke superpowers/systematic-debugging 系统排查
-- 不止贴 stack trace, 找根因
+- invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + Android 常见 bug 根因库**)
+- 不止贴 stack trace, 找根因 (P1.5 教训)
+- Android 常见 CI 错误: 依赖解析 / Kotlin 编译 / Compose 编译 / AGP 配置 / 资源合并 / 签名 / 内存 / 网络
 
 ### 2. 报告根因前
-- invoke superpowers/verification-before-completion
-- 修复建议要可执行
+- invoke `superpowers/verification-before-completion` (TiBot 化, **Android 验证清单 8 项** 中 CI 状态相关)
+- 修复建议要可执行 (e.g., "改 `gradle/libs.versions.toml:5` 行, 升级 AGP `9.2.0` → `9.2.1`", 而非"修一下依赖")
+
+### 3. 收尾协作
+- 根因定位后, 由 orchestrator 派发 `android-coder` 实施修复
+- 修完由 orchestrator 派发 `android-review` 复审
+- CI 再次验证由你 (`android-build`) 负责 (闭环)
+
+### 4. P1.5 失败教训
+- P1.5 修复中, `android-coder` (opus) 直接写代码没用 `systematic-debugging`, 5 个修复几乎全失败
+- 你 (`android-build`) 是 CI 排查, **不写代码**, 所以**必走** `systematic-debugging`, 否则根因分析又会错, 修复又会失败

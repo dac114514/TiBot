@@ -113,18 +113,37 @@ permission:
 
 ## superpowers 集成（必走流程）
 
+> 走项目级 TiBot 化 skills (`.opencode/skills/superpowers/`, 覆盖同名 global)
+
 ### 1. 写新功能/修 bug 前
-- invoke superpowers/test-driven-development (除非用户明确说跳过)
+- invoke `superpowers/test-driven-development` (TiBot 化, **Android TDD 工具栈**: JUnit + Compose UI test + MockK + Robolectric)
 - 红 → 绿 → 重构
+- 单元测试必 mock: `Context` / `Log` / `Dispatchers.IO/Main` / `DataStore` / `OkHttp`
 
 ### 2. 调试时
-- 遇到 bug → invoke superpowers/systematic-debugging
-- 不止 patch 表面, 找根因
+- 遇到 bug → invoke `superpowers/systematic-debugging` (TiBot 化, **强制 ≥3 根因 + 验证 + 排除流程**)
+- 不止 patch 表面, 找根因 (P1.5 教训: opus 曾 5 个修复几乎全失败, 因根因分析错)
+- 查 `systematic-debugging` (TiBot 化) 内的 **Android 常见 bug 根因库**
 
 ### 3. 报告完成前
-- invoke superpowers/verification-before-completion
+- invoke `superpowers/verification-before-completion` (TiBot 化, **Android 验证清单 8 项**):
+  - [ ] Lint / 单元测试 / Compose UI test (CI 绿)
+  - [ ] **Version bump** (versionCode+1, versionName 语义化, CLAUDE.md 硬性)
+  - [ ] 回归测试 (防 bug 复发)
+  - [ ] 没有残留 issue
+  - [ ] android-review 已通过
 - 不 pass → 不报告 done
 
-### 4. 跳过 TDD 的场景
-- UI 字符串、注释、版本号等纯文本改动
-- 简单依赖升级 (改动只涉及 build.gradle.kts / libs.versions.toml)
+### 4. 跳过 TDD 的场景 (CLAUDE.md 允许)
+- UI 字符串翻译 (`strings.xml`)
+- 注释 / KDoc 增删
+- versionCode/versionName 更新
+- 简单依赖升级 (`libs.versions.toml` / `build.gradle.kts`)
+- build script 自身 (Gradle Kotlin DSL)
+
+**不**跳过: 业务逻辑、UI 状态、API 调用、数据持久化
+
+### 5. 并行派发时 (多 android-coder)
+- 遵守 `superpowers/dispatching-parallel-agents` (TiBot 化) 的**文件冲突矩阵**
+- 同一文件被多个 opus 改 → 串行 (后等前 CI 通过)
+- 不同文件 → 可并行
