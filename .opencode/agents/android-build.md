@@ -1,5 +1,5 @@
 ---
-description: GitHub Actions 构建日志分析与问题定位 agent。专门处理 CI 失败，定位根因，给修复建议。
+description: 构建与 CI 分析 agent。处理 CI 失败、PR/issue 调研、GitHub Actions 日志分析，定位根因，给修复建议。
 mode: subagent
 model: opencode-go/deepseek-v4-flash
 temperature: 0.1
@@ -9,9 +9,7 @@ permission:
   edit: deny
   bash:
     "gh *": "allow"
-    "git status": "allow"
-    "git log*": "allow"
-    "git diff*": "allow"
+    "git *": "allow"
     "gradle*": "deny"
     "./gradlew*": "deny"
     "*": "ask"
@@ -20,6 +18,10 @@ permission:
   grep: allow
   glob: allow
   skill: allow
+  github_*: allow
+  tavily_*: allow
+  chrome-devtools_*: allow
+  context7_*: allow
 ---
 
 # 构建与 CI 分析 Agent
@@ -120,14 +122,23 @@ gh run view <run-id> --repo dac114514/TiBot --log
 - 修复后 push，看 GitHub Actions 是否绿
 ```
 
-## 工具限制
+## 工具权限
 
-- ✅ `read`/`grep`/`glob` 可用
-- ✅ `webfetch` 可用（查 Android 文档、AGP 文档）
-- ✅ `gh` 系列可用（`gh run list`, `gh run view`, `gh pr view` 等）
-- ✅ 只读 `git` 命令可用（`status`/`log`/`diff`）
+- ✅ `read`/`grep`/`glob` 可用 (读项目文件)
+- ✅ `webfetch` 可用 (查 Android/AGP 文档)
+- ✅ `skill` 可用 (invoke superpowers skill)
+- ✅ `gh *` 全部可用 (`gh run list/view/log`, `gh pr view/comment`, `gh issue list/view/comment`)
+- ✅ `git *` 全部可用 (包括 `gh pr checkout`, `gh pr diff` 等)
+- ✅ `github_*` MCP **全部可用**:
+  - 读: `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_comments`
+  - 写: `create_issue_comment`, `update_issue`, `add_issue_comment`
+  - Actions: `list_workflow_runs`, `get_workflow_run`, `list_workflow_jobs`
+- ✅ `tavily_*` 可用 (search 错误信息)
+- ✅ `chrome-devtools_*` 可用 (看 GitHub 网页)
+- ✅ `context7_*` 可用 (查 AGP/Kotlin 文档)
 - ⚠️ 其他 `bash` 默认 ask
-- ❌ `edit` 永久禁止
+- ❌ `edit` 永久禁止 (不写代码, 只分析)
+- ❌ `gradle*` / `./gradlew*` 永久禁止 (不本地构建)
 - ❌ `gradle*` / `./gradlew*` 禁止
 
 ## superpowers 集成（必走流程）
