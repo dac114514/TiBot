@@ -11,8 +11,8 @@ android {
         applicationId = "com.faster.tibot"
         minSdk = 24
         targetSdk = 36
-        versionCode = 38
-        versionName = "2.2.3"
+        versionCode = 39
+        versionName = "2.2.4"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -93,4 +93,18 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.ui.tooling)
+
+    // Unit testing
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.androidx.test.runner)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+
+    // Compose UI test manifest (for createAndroidComposeRule in androidTest)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

@@ -229,11 +229,8 @@ private fun BubbleStatus(message: ChatMessage, onRetry: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            "read" -> Text(
-                text = "✓✓",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            // R1-A / B3: 移除 ✓✓ 双勾 — 之前 message.status 永远不会是 "read",
+            // 双勾是无效 UI 元素。仅保留 "sent" 单勾。
             "failed" -> Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "⚠ 发送失败",

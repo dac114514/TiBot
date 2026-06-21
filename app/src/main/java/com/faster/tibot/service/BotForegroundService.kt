@@ -95,7 +95,7 @@ class BotForegroundService : Service() {
             val downloader = FileDownloader(botClient, applicationContext)
             fileDownloader = downloader
             pollingManager = PollingManager(
-                botClient, store, engine, repo, downloader
+                botClient, store, engine, repo, downloader, applicationContext
             )
             currentToken = token
         }

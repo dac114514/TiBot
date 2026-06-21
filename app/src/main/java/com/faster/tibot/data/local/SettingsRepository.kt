@@ -28,6 +28,11 @@ class SettingsRepository(private val context: Context) {
         val ACCESS_MODE = stringPreferencesKey("access_mode")
         val BACKGROUND_RUNNING = stringPreferencesKey("background_running")
         val NOTIFICATIONS_ENABLED = stringPreferencesKey("notifications_enabled")
+        /**
+         * 静音 chat 列表 (R1-A / B5 引入)。
+         * 持久化为 JSON 数组字符串: `[123, 456]`。
+         */
+        val MUTED_CHATS = stringPreferencesKey("muted_chats")
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
@@ -68,6 +73,14 @@ class SettingsRepository(private val context: Context) {
 
     val notificationsEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[Keys.NOTIFICATIONS_ENABLED] != "false"
+    }
+
+    /**
+     * 静音 chat 集合 (R1-A / B5 引入)。
+     * PollingManager 收到消息时检查此 set, 在内则不弹通知。
+     */
+    val perChatMute: Flow<Set<Long>> = context.dataStore.data.map { prefs ->
+        parseMutedChats(prefs[Keys.MUTED_CHATS])
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -121,6 +134,38 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled.toString() }
+    }
+
+    /**
+     * 翻转 chatId 的静音状态 (R1-A / B5 引入)。
+     * 在 muted 集合中 → 移除;不在 → 加入。
+     */
+    suspend fun toggleMute(chatId: Long) {
+        context.dataStore.edit { prefs ->
+            val current = parseMutedChats(prefs[Keys.MUTED_CHATS])
+            val newSet = if (chatId in current) current - chatId else current + chatId
+            prefs[Keys.MUTED_CHATS] = encodeMutedChats(newSet)
+        }
+    }
+
+    private fun parseMutedChats(json: String?): Set<Long> {
+        if (json.isNullOrBlank()) return emptySet()
+        return try {
+            val arr = JSONArray(json)
+            val out = mutableSetOf<Long>()
+            for (i in 0 until arr.length()) {
+                runCatching { arr.getLong(i) }.getOrNull()?.let(out::add)
+            }
+            out
+        } catch (_: Exception) {
+            emptySet()
+        }
+    }
+
+    private fun encodeMutedChats(ids: Set<Long>): String {
+        val arr = JSONArray()
+        for (id in ids) arr.put(id)
+        return arr.toString()
     }
 
     suspend fun addAdmin(id: Long) {

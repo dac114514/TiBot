@@ -81,11 +81,38 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectChat(chatId: Long) {
         _activeChatId.value = chatId
+        // R1-A / B1: 进入 chat 时把当前最新一条标为已读, 清零未读。
+        // 单聊 + 群聊统一处理: 群聊里某条新消息也只标记那个 chatId 的 lastRead。
+        viewModelScope.launch {
+            runCatching {
+                val latest = messageStore.getMessages(chatId)
+                    .maxByOrNull { it.messageId }?.messageId ?: 0L
+                if (latest > 0L) messageStore.markRead(chatId, latest)
+            }.onFailure { Log.e(TAG, "selectChat markRead failed", it) }
+        }
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
             messageStore.getMessagesFlow(chatId).collect { msgs ->
                 _messages.value = msgs.map { msg -> msg.toUi() }
             }
+        }
+    }
+
+    /**
+     * 把所有 chat 标记为已读 (R1-A / B1 引入)。
+     * 由 UI 入口(例如菜单"全部已读")触发。
+     */
+    fun markAllRead() {
+        viewModelScope.launch {
+            runCatching {
+                val all = messageStore.getAllChats()
+                for (chat in all) {
+                    val latest = messageStore.getMessages(chat.chatId)
+                        .maxByOrNull { it.messageId }?.messageId
+                        ?: chat.lastMessageId
+                    if (latest > 0L) messageStore.markRead(chat.chatId, latest)
+                }
+            }.onFailure { Log.e(TAG, "markAllRead failed", it) }
         }
     }
 

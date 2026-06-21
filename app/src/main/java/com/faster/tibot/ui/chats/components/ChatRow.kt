@@ -102,7 +102,9 @@ fun ChatRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (chat.messageCount > 1) {
+            // R1-A / B1: 真实未读 badge — 只在 unreadCount > 0 时显示,
+            // 显示数值 (99+ 截断), 不再以 messageCount 当 badge。
+            if (chat.unreadCount > 0) {
                 Spacer(Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
@@ -113,7 +115,7 @@ fun ChatRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (chat.messageCount > 99) "99+" else chat.messageCount.toString(),
+                        text = if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(),
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,

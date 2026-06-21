@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.faster.tibot.data.telegram.TelegramMessage
@@ -33,6 +34,17 @@ data class ChatSummary(
     val lastOutgoing: Boolean = false,
     val lastIsAutoReply: Boolean = false,
     val isAdmin: Boolean = false,
+    /**
+     * 最近一条消息的 messageId (来自 chat_msgs_<chatId> 的 max)。
+     * R1-A 引入, 用于和 lastReadMessageId 一起计算 unreadCount。
+     * 默认 0 表示该 chat 还没有消息。
+     */
+    val lastMessageId: Long = 0L,
+    /**
+     * 未读消息数 (= max(0, lastMessageId - lastReadMessageId))。
+     * 派生字段, 解析时实时计算, 不持久化。
+     */
+    val unreadCount: Int = 0,
 ) {
     val title: String get() = chatTitle
 }
@@ -63,6 +75,12 @@ class MessageStore(private val context: Context) {
         val CHAT_LIST = stringPreferencesKey("chat_list")
 
         fun chatMessages(chatId: Long) = stringPreferencesKey("chat_msgs_$chatId")
+
+        /**
+         * 持久化每个 chat 的最后已读 messageId。
+         * R1-A 引入, 配套 ChatSummary.lastMessageId 算 unreadCount。
+         */
+        fun lastRead(chatId: Long) = longPreferencesKey("last_read_$chatId")
     }
 
     private object MigrationKeys {
@@ -146,6 +164,7 @@ class MessageStore(private val context: Context) {
             put("lastOutgoing", msg.isOutgoing)
             put("lastIsAutoReply", msg.isAutoReply)
             put("isAdmin", isCurrentUserAdmin)
+            put("lastMessageId", msg.messageId)
         }
     }
 
@@ -162,10 +181,66 @@ class MessageStore(private val context: Context) {
 
     fun getAllChatsFlow(): Flow<List<ChatSummary>> =
         context.messageDataStore.data
-            .map { prefs -> parseChatsSafe(prefs[Keys.CHAT_LIST] ?: "[]") }
+            .map { prefs ->
+                val lastReadMap = readLastReadMap(prefs)
+                parseChatsSafe(prefs[Keys.CHAT_LIST] ?: "[]", lastReadMap)
+            }
             .distinctUntilChanged()
 
     suspend fun getAllChats(): List<ChatSummary> = getAllChatsFlow().first()
+
+    /**
+     * 从当前 prefs snapshot 中收集所有 `last_read_<chatId>` 键, 返回 chatId -> lastReadMessageId 映射。
+     *
+     * R1-A 引入: 未读数计算需要"每个 chat 的 lastRead"做对照。
+     * 之所以扫描整个 prefs.asMap() 而不是每个 chat 单独读, 是因为 last_read_<chatId>
+     * 是独立的 longPreferencesKey, 没有内置的"所有键"枚举 API, 必须扫所有 entry。
+     */
+    private fun readLastReadMap(prefs: Preferences): Map<Long, Long> {
+        val out = mutableMapOf<Long, Long>()
+        for ((key, value) in prefs.asMap()) {
+            val name = key.name
+            if (name.startsWith("last_read_")) {
+                val chatId = name.removePrefix("last_read_").toLongOrNull() ?: continue
+                val v = (value as? Long) ?: continue
+                out[chatId] = v
+            }
+        }
+        return out
+    }
+
+    /**
+     * 把指定 chat 标记为"已读到 messageId"。单调递增, 即只在新 messageId > 当前 lastRead 时才写入。
+     *
+     * R1-A 引入: 配套 ChatsViewModel.selectChat / markAllRead 调用。
+     */
+    suspend fun markRead(chatId: Long, messageId: Long) {
+        if (messageId <= 0L) return
+        context.messageDataStore.edit { prefs ->
+            val key = Keys.lastRead(chatId)
+            val current = prefs[key] ?: 0L
+            if (messageId > current) {
+                prefs[key] = messageId
+            }
+        }
+    }
+
+    /**
+     * 当前 chat 的未读消息数 (近似 = lastMessageId - lastReadMessageId, 不小于 0)。
+     *
+     * 不持久化: 任何时刻都从最新的 lastMessageId (来自 ChatSummary) 和 lastRead 派生。
+     */
+    suspend fun getUnreadCount(chatId: Long): Int = getUnreadCountFlow(chatId).first()
+
+    fun getUnreadCountFlow(chatId: Long): Flow<Int> =
+        context.messageDataStore.data
+            .map { prefs ->
+                val lastRead = prefs[Keys.lastRead(chatId)] ?: 0L
+                val chats = parseChatsSafe(prefs[Keys.CHAT_LIST] ?: "[]", readLastReadMap(prefs))
+                val lastMsg = chats.firstOrNull { it.chatId == chatId }?.lastMessageId ?: 0L
+                (lastMsg - lastRead).coerceAtLeast(0L).toInt()
+            }
+            .distinctUntilChanged()
 
     suspend fun getAllFileNeedingDownload(): List<TelegramMessage> {
         val chats = getAllChats()
@@ -306,7 +381,7 @@ class MessageStore(private val context: Context) {
         }
     }
 
-    private fun parseChatsSafe(raw: String): List<ChatSummary> {
+    private fun parseChatsSafe(raw: String, lastReadMap: Map<Long, Long> = emptyMap()): List<ChatSummary> {
         val arr = try {
             JSONArray(raw)
         } catch (_: Exception) {
@@ -319,6 +394,9 @@ class MessageStore(private val context: Context) {
             if (chatId == 0L) continue
             val title = obj.optString("chatTitle", "")
             val lastTime = obj.optLong("lastTime", 0)
+            val lastMessageId = obj.optLong("lastMessageId", 0L)
+            val lastRead = lastReadMap[chatId] ?: 0L
+            val unreadCount = (lastMessageId - lastRead).coerceAtLeast(0L).toInt()
             list.add(
                 ChatSummary(
                     chatId = chatId,
@@ -333,6 +411,8 @@ class MessageStore(private val context: Context) {
                     lastOutgoing = obj.optBoolean("lastOutgoing", false),
                     lastIsAutoReply = obj.optBoolean("lastIsAutoReply", false),
                     isAdmin = obj.optBoolean("isAdmin", false),
+                    lastMessageId = lastMessageId,
+                    unreadCount = unreadCount,
                 )
             )
         }

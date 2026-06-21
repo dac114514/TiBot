@@ -1,8 +1,11 @@
 package com.faster.tibot.data.telegram
 
+import android.content.Context
+import android.util.Log
 import com.faster.tibot.data.autoreply.AutoReplyEngine
 import com.faster.tibot.data.local.SettingsRepository
 import com.faster.tibot.data.message.MessageStore
+import com.faster.tibot.service.NotificationFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,6 +19,11 @@ class PollingManager(
     private val autoReplyEngine: AutoReplyEngine,
     private val settingsRepo: SettingsRepository,
     private val fileDownloader: FileDownloader,
+    /**
+     * 用于弹系统通知的 application context (R1-A / B5 引入)。
+     * 不持有 Activity context, 避免泄漏。
+     */
+    private val appContext: Context,
 ) {
     private var job: Job? = null
 
@@ -71,6 +79,21 @@ class PollingManager(
                                     }
                                 }
                             }
+                            // R1-A / B5: 弹系统通知 (在新协程中跑, 避免阻塞 polling 循环)。
+                            // 静默: 全局禁用 / 该 chat 静音 / 出错 都吞异常, 不影响主流程。
+                            scope.launch {
+                                runCatching {
+                                    if (shouldNotify(msg.chatId)) {
+                                        val sender = msg.fromName.ifBlank { msg.chatTitle.ifBlank { "新消息" } }
+                                        NotificationFactory.showMessageNotification(
+                                            context = appContext,
+                                            senderName = sender,
+                                            text = msg.text,
+                                            chatId = msg.chatId,
+                                        )
+                                    }
+                                }.onFailure { Log.w(TAG, "notify failed chatId=${msg.chatId}: ${it.message}") }
+                            }
                         }
                     }
                     BotState.setOnline(true)
@@ -90,6 +113,14 @@ class PollingManager(
         job = null
     }
 
+    private suspend fun shouldNotify(chatId: Long): Boolean {
+        val enabled = settingsRepo.notificationsEnabled.first()
+        if (!enabled) return false
+        val muted = settingsRepo.perChatMute.first()
+        if (chatId in muted) return false
+        return true
+    }
+
     private fun isAuthorized(msg: TelegramMessage, accessMode: String, adminIds: List<Long>): Boolean {
         if (accessMode == "all") return true
         if (adminIds.isEmpty() || adminIds.all { it == 0L }) return false
@@ -101,5 +132,9 @@ class PollingManager(
             "group", "supergroup" -> fromId in adminIds
             else -> false
         }
+    }
+
+    private companion object {
+        private const val TAG = "PollingManager"
     }
 }
