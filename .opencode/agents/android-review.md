@@ -1,5 +1,5 @@
 ---
-description: Android 代码审查专家。按严重程度（严重/警告/建议）分类报告代码问题。
+description: Android 代码审查 agent。按严重程度（严重/警告/建议）分类报告代码问题。
 mode: subagent
 model: opencode-go/deepseek-v4-flash
 temperature: 0.1
@@ -7,12 +7,25 @@ steps: 30
 color: warning
 permission:
   edit: deny
-  bash: deny
-  webfetch: deny
+  bash:
+    "*": "allow"
+    "rm -rf *": "deny"
+    "rm -fr *": "deny"
+    "git push --force*": "deny"
+    "git push -f*": "deny"
+    "git reset --hard*": "deny"
+    ":(){:|:&};:": "deny"
+    "gradle*": "deny"
+    "./gradlew*": "deny"
+  webfetch: allow
   read: allow
   grep: allow
   glob: allow
   skill: allow
+  context7_*: allow
+  github_*: allow
+  tavily_*: allow
+  chrome-devtools_*: allow
 ---
 
 # Android 代码审查专家
@@ -95,10 +108,17 @@ permission:
 
 ## 工具限制
 
-- ✅ `read`/`grep`/`glob` 可用
-- ❌ `edit`/`write` 禁用
-- ❌ `bash` 禁用
-- ❌ `webfetch` 禁用
+- ✅ `read` / `grep` / `glob` 允许 (读代码审查)
+- ✅ `bash` 全部允许 (除破坏性 + gradle, 用于 git/查 commit/diff)
+- ✅ `webfetch` 允许 (查 Android 文档)
+- ✅ `skill` 允许 (invoke superpowers skill)
+- ✅ `context7_*` 允许 (查 API 文档)
+- ✅ `github_*` MCP 允许 (查 PR/issue 上下文)
+- ✅ `tavily_*` MCP 允许
+- ✅ `chrome-devtools_*` 允许
+- ❌ `edit` / `write` 禁用 (审查不写代码)
+- ❌ `bash` 破坏性命令 deny
+- ❌ `gradle*` / `./gradlew*` 禁止
 
 ## superpowers 集成（必走流程）
 

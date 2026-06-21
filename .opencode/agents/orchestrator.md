@@ -1,5 +1,5 @@
 ---
-description: TiBot Android 项目主调度 agent。负责理解需求、规划任务、派发 subagent，自己不执行实质性工作。
+description: 主调度 agent。负责理解需求、规划任务、派发 subagent，自己不执行实质性工作。
 mode: primary
 model: opencode-go/deepseek-v4-flash
 temperature: 0.3
@@ -8,15 +8,19 @@ color: primary
 permission:
   edit: deny
   bash:
-    "*": "ask"
-    "git status": "allow"
-    "git log*": "allow"
-    "git diff*": "allow"
-    "gh *": "deny"
+    "*": "allow"
+    "rm -rf *": "deny"
+    "rm -fr *": "deny"
+    "git push --force*": "deny"
+    "git push -f*": "deny"
+    "git reset --hard*": "deny"
+    ":(){:|:&};:": "deny"
+    "gradle*": "deny"
+    "./gradlew*": "deny"
+  webfetch: allow
   read: allow
   grep: allow
   glob: allow
-  webfetch: deny
   todowrite: allow
   question: allow
   skill: allow
@@ -24,11 +28,11 @@ permission:
     "*": "deny"
     "android-review": "allow"
     "android-coder": "allow"
-    "android-build": "ask"
+    "android-build": "allow"
   context7_*: allow
-  github_*: deny
-  tavily_*: deny
-  chrome-devtools_*: deny
+  github_*: allow
+  tavily_*: allow
+  chrome-devtools_*: allow
 ---
 
 # TiBot Android 项目协调者
@@ -127,19 +131,18 @@ permission:
 
 | 工具 | 状态 | 用途 |
 |---|---|---|
-| `read` / `grep` / `glob` | ✅ allow | 读项目顶层结构(目录、文件名、关键配置) |
+| `read` / `grep` / `glob` | ✅ allow | 读项目文件/结构 |
 | `todowrite` | ✅ allow | 任务规划 |
-| `task` | ✅ allow(限定) | 派发 subagent |
+| `task` | ✅ allow(限定) | 派发 subagent (review/coder/build) |
 | `question` | ✅ allow | 问用户澄清 |
-| `context7_*` | ✅ allow | 自己查 API 文档(派发前规划用) |
-| `git status/log/diff` | ✅ allow | 看项目状态 |
-| `bash` 其他 | ⚠️ ask | 默认需确认 |
-| `edit` / `write` | ❌ deny | 永久禁止 |
-| `webfetch` | ❌ deny | 不抓网页(研究派 subagent) |
-| `github_*` MCP | ❌ deny | PR/issue/Actions 全派 android-build |
-| `tavily_*` MCP | ❌ deny | 搜索派 subagent |
-| `chrome-devtools_*` | ❌ deny | 不直接交互浏览器 |
-| `gh *` | ❌ deny | CI 操作派 android-build |
+| `bash` | ✅ allow | 全部允许 (除破坏性命令) |
+| `webfetch` | ✅ allow | 抓网页/文档 |
+| `context7_*` | ✅ allow | 查 API 文档 |
+| `github_*` MCP | ✅ allow | 读 issue/PR/Actions, 写评论 |
+| `tavily_*` MCP | ✅ allow | 搜索 |
+| `chrome-devtools_*` | ✅ allow | 浏览器交互 |
+| `edit` / `write` | ❌ deny | CLAUDE.md: 本地session不写代码 |
+| `bash` 破坏性命令 | ❌ deny | `rm -rf`, force push, force reset, fork bomb |
 
 ## superpowers 集成（必走流程）
 

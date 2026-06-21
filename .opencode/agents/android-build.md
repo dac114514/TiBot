@@ -8,20 +8,24 @@ color: info
 permission:
   edit: deny
   bash:
-    "gh *": "allow"
-    "git *": "allow"
+    "*": "allow"
+    "rm -rf *": "deny"
+    "rm -fr *": "deny"
+    "git push --force*": "deny"
+    "git push -f*": "deny"
+    "git reset --hard*": "deny"
+    ":(){:|:&};:": "deny"
     "gradle*": "deny"
     "./gradlew*": "deny"
-    "*": "ask"
   webfetch: allow
   read: allow
   grep: allow
   glob: allow
   skill: allow
+  context7_*: allow
   github_*: allow
   tavily_*: allow
   chrome-devtools_*: allow
-  context7_*: allow
 ---
 
 # 构建与 CI 分析 Agent
@@ -124,22 +128,21 @@ gh run view <run-id> --repo dac114514/TiBot --log
 
 ## 工具权限
 
-- ✅ `read`/`grep`/`glob` 可用 (读项目文件)
-- ✅ `webfetch` 可用 (查 Android/AGP 文档)
-- ✅ `skill` 可用 (invoke superpowers skill)
+- ✅ `read` / `grep` / `glob` 允许 (读项目文件)
+- ✅ `bash` 全部允许 (除破坏性 + gradle, 用于 git/查 commit/diff)
+- ✅ `webfetch` 允许 (查 Android/AGP 文档)
+- ✅ `skill` 允许 (invoke superpowers skill)
 - ✅ `gh *` 全部可用 (`gh run list/view/log`, `gh pr view/comment`, `gh issue list/view/comment`)
-- ✅ `git *` 全部可用 (包括 `gh pr checkout`, `gh pr diff` 等)
+- ✅ `git *` 全部可用
 - ✅ `github_*` MCP **全部可用**:
-  - 读: `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_comments`
-  - 写: `create_issue_comment`, `update_issue`, `add_issue_comment`
-  - Actions: `list_workflow_runs`, `get_workflow_run`, `list_workflow_jobs`
-- ✅ `tavily_*` 可用 (search 错误信息)
-- ✅ `chrome-devtools_*` 可用 (看 GitHub 网页)
-- ✅ `context7_*` 可用 (查 AGP/Kotlin 文档)
-- ⚠️ 其他 `bash` 默认 ask
-- ❌ `edit` 永久禁止 (不写代码, 只分析)
-- ❌ `gradle*` / `./gradlew*` 永久禁止 (不本地构建)
-- ❌ `gradle*` / `./gradlew*` 禁止
+  - 读: `list_pull_requests`, `get_pull_request`, `get_pull_request_files`, `get_pull_request_reviews`, `get_pull_request_comments`, `list_workflow_runs`, `get_workflow_run`, `list_workflow_jobs`
+  - 写: `create_issue_comment`, `update_issue`, `add_issue_comment`, `create_pull_request_review`
+- ✅ `tavily_*` 允许 (search 错误信息)
+- ✅ `chrome-devtools_*` 允许 (看 GitHub 网页)
+- ✅ `context7_*` 允许 (查 AGP/Kotlin 文档)
+- ❌ `bash` 破坏性命令 deny (`rm -rf`, force push/reset, fork bomb)
+- ❌ `edit` 永久禁止 (CI 排查不写代码)
+- ❌ `gradle*` / `./gradlew*` 永久禁止 (CLAUDE.md: 禁本地构建)
 
 ## superpowers 集成（必走流程）
 

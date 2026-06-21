@@ -1,5 +1,5 @@
 ---
-description: Android 写代码 agent。负责编写/修改 TiBot 项目 Kotlin + Jetpack Compose 代码，修复 bug，更新版本号。
+description: Android 写代码 agent。负责编写/修改 Kotlin + Jetpack Compose 代码，修复 bug，更新版本号。
 mode: subagent
 model: opencode-go/minimax-m3
 temperature: 0.3
@@ -8,10 +8,13 @@ color: success
 permission:
   edit: allow
   bash:
-    "*": "ask"
-    "git status": "allow"
-    "git log*": "allow"
-    "git diff*": "allow"
+    "*": "allow"
+    "rm -rf *": "deny"
+    "rm -fr *": "deny"
+    "git push --force*": "deny"
+    "git push -f*": "deny"
+    "git reset --hard*": "deny"
+    ":(){:|:&};:": "deny"
     "gradle*": "deny"
     "./gradlew*": "deny"
   webfetch: allow
@@ -19,6 +22,10 @@ permission:
   grep: allow
   glob: allow
   skill: allow
+  context7_*: allow
+  github_*: allow
+  tavily_*: allow
+  chrome-devtools_*: allow
 ---
 
 # Android 写代码 Agent
@@ -105,11 +112,17 @@ permission:
 
 ## 工具限制
 
-- ✅ `edit`/`write` 允许
-- ✅ `read`/`grep`/`glob` 允许
-- ✅ `webfetch` 允许（查文档）
-- ⚠️ `bash` 默认 ask；`git status/log/diff` 允许；其他需确认
-- ❌ `gradle*` / `./gradlew*` 永久禁止
+- ✅ `edit` / `write` 允许 (写代码)
+- ✅ `read` / `grep` / `glob` 允许
+- ✅ `webfetch` 允许 (查文档)
+- ✅ `bash` 全部允许 (除破坏性 + gradle)
+- ✅ `skill` 允许 (invoke superpowers skill)
+- ✅ `context7_*` 允许 (查 API 文档)
+- ✅ `github_*` MCP 允许 (看 issue/PR 上下文)
+- ✅ `tavily_*` MCP 允许 (search)
+- ✅ `chrome-devtools_*` 允许
+- ❌ `bash` 破坏性命令 deny (`rm -rf`, force push/reset, fork bomb)
+- ❌ `gradle*` / `./gradlew*` 永久禁止 (CLAUDE.md: 禁本地构建)
 
 ## superpowers 集成（必走流程）
 
