@@ -14,6 +14,28 @@ import java.util.concurrent.TimeUnit
 
 data class BotUser(val id: Long, val firstName: String, val userName: String?)
 
+/**
+ * Telegram user profile photo 的单个 size 描述 (R1-B / C2 准备)。
+ * 由 getUserProfilePhotos API 返回的 photos[i][j] 元素。
+ */
+data class UserProfilePhotoSize(
+    val fileId: String,
+    val fileUniqueId: String,
+    val width: Int,
+    val height: Int,
+    val fileSize: Long,
+)
+
+/**
+ * getUserProfilePhotos API 的返回结果 (R1-B / C2 准备)。
+ * - totalCount: 用户设置的总 photo 数
+ * - photos: List<List<UserProfilePhotoSize>>, 外层是 photo 顺序, 内层是每个 photo 的不同 size
+ */
+data class UserProfilePhotos(
+    val totalCount: Int,
+    val photos: List<List<UserProfilePhotoSize>>,
+)
+
 class TelegramBotClient(private val token: String) {
     private val baseUrl = "https://api.telegram.org/bot$token"
     private val client = OkHttpClient.Builder()
@@ -165,6 +187,103 @@ class TelegramBotClient(private val token: String) {
                 val json = JSONObject(bodyText)
                 if (!json.optBoolean("ok", false)) error("sendDocument failed: $bodyText")
                 json.getJSONObject("result").optLong("message_id")
+            }
+        }
+    }
+
+    /**
+     * 编辑已发送消息的文本 (R1-B / B4)。
+     * Bot API: editMessageText
+     * 成功时 Telegram 返回更新后的 Message 对象; 失败时 ok=false。
+     */
+    suspend fun editMessageText(
+        chatId: Long,
+        messageId: Long,
+        text: String,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_id", messageId)
+                put("text", text)
+            }
+            val req = Request.Builder().url("$baseUrl/editMessageText")
+                .post(body.toString().toRequestBody(jsonMedia)).build()
+            client.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) error("HTTP ${res.code}")
+                val bodyText = res.body?.string().orEmpty()
+                val json = JSONObject(bodyText)
+                if (!json.optBoolean("ok", false)) error("editMessageText failed: $bodyText")
+                Unit
+            }
+        }
+    }
+
+    /**
+     * 删除一条消息 (R1-B / B4)。可以是 bot 自己发的, 也可以是 chat 中的其他消息
+     * (需 bot 有删除权限, 否则 Telegram 返回 ok=false)。
+     */
+    suspend fun deleteMessage(chatId: Long, messageId: Long): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = JSONObject().apply {
+                    put("chat_id", chatId)
+                    put("message_id", messageId)
+                }
+                val req = Request.Builder().url("$baseUrl/deleteMessage")
+                    .post(body.toString().toRequestBody(jsonMedia)).build()
+                client.newCall(req).execute().use { res ->
+                    if (!res.isSuccessful) error("HTTP ${res.code}")
+                    val bodyText = res.body?.string().orEmpty()
+                    val json = JSONObject(bodyText)
+                    if (!json.optBoolean("ok", false)) error("deleteMessage failed: $bodyText")
+                    Unit
+                }
+            }
+        }
+
+    /**
+     * 获取用户头像列表 (R1-B / C2 准备)。
+     * Bot API: getUserProfilePhotos
+     * @param userId Telegram user id
+     * @param offset 起始 photo 索引
+     * @param limit 返回的 photo 个数 (1..100)
+     */
+    suspend fun getUserProfilePhotos(
+        userId: Long,
+        offset: Int = 0,
+        limit: Int = 1,
+    ): Result<UserProfilePhotos> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = JSONObject().apply {
+                put("user_id", userId)
+                put("offset", offset)
+                put("limit", limit)
+            }
+            val req = Request.Builder().url("$baseUrl/getUserProfilePhotos")
+                .post(body.toString().toRequestBody(jsonMedia)).build()
+            client.newCall(req).execute().use { res ->
+                if (!res.isSuccessful) error("HTTP ${res.code}")
+                val bodyText = res.body?.string().orEmpty()
+                val json = JSONObject(bodyText)
+                if (!json.optBoolean("ok", false)) error("getUserProfilePhotos failed: $bodyText")
+                val result = json.getJSONObject("result")
+                val totalCount = result.optInt("total_count", 0)
+                val photosArr = result.optJSONArray("photos") ?: JSONArray()
+                val photos = (0 until photosArr.length()).map { i ->
+                    val sizesArr = photosArr.getJSONArray(i)
+                    (0 until sizesArr.length()).map { j ->
+                        val s = sizesArr.getJSONObject(j)
+                        UserProfilePhotoSize(
+                            fileId = s.optString("file_id", ""),
+                            fileUniqueId = s.optString("file_unique_id", ""),
+                            width = s.optInt("width", 0),
+                            height = s.optInt("height", 0),
+                            fileSize = s.optLong("file_size", 0L),
+                        )
+                    }
+                }
+                UserProfilePhotos(totalCount = totalCount, photos = photos)
             }
         }
     }

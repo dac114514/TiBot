@@ -137,13 +137,23 @@ fun MessageBubble(
                     onMenuAction(message, "forward")
                 },
             )
-            DropdownMenuItem(
-                text = { Text("删除") },
-                onClick = {
-                    showMenu = false
-                    onMenuAction(message, "delete")
-                },
-            )
+            // R1-B / B4: 编辑/删除仅自己消息可见 (bot 只能编辑/删除自己发的消息)
+            if (message.isOutgoing) {
+                DropdownMenuItem(
+                    text = { Text("编辑") },
+                    onClick = {
+                        showMenu = false
+                        onMenuAction(message, "edit")
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("删除") },
+                    onClick = {
+                        showMenu = false
+                        onMenuAction(message, "delete")
+                    },
+                )
+            }
         }
     }
 }

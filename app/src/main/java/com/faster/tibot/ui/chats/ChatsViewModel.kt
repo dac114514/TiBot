@@ -79,8 +79,15 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
 
     private var messagesJob: Job? = null
 
+    /**
+     * 是否还有更老的消息可加载 (R1-B / B2 引入)。
+     * 翻页用 — true 时允许 loadOlderMessages, false 时早退避免无效 IO。
+     */
+    private var hasMore: Boolean = true
+
     fun selectChat(chatId: Long) {
         _activeChatId.value = chatId
+        hasMore = true
         // R1-A / B1: 进入 chat 时把当前最新一条标为已读, 清零未读。
         // 单聊 + 群聊统一处理: 群聊里某条新消息也只标记那个 chatId 的 lastRead。
         viewModelScope.launch {
@@ -92,9 +99,105 @@ class ChatsViewModel(application: Application) : AndroidViewModel(application) {
         }
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
+            // R1-B / B2: 分页加载, 先取最新 200 条作为首屏
+            val initial = messageStore.getMessages(chatId, limit = 200, offset = 0)
+            _messages.value = initial.map { it.toUi() }
+            // probe 更老是否还有: offset=initial.size, limit=1
+            val probe = messageStore.getMessages(chatId, limit = 1, offset = initial.size)
+            hasMore = probe.isNotEmpty()
+            Log.i(TAG, "selectChat chatId=$chatId initial=${initial.size} hasMore=$hasMore")
+
+            // 持续收 flow, 之后到达的新消息 append 到末尾
             messageStore.getMessagesFlow(chatId).collect { msgs ->
-                _messages.value = msgs.map { msg -> msg.toUi() }
+                val currentIds = _messages.value.map { it.id }.toSet()
+                val newOnes = msgs.map { it.toUi() }.filter { it.id !in currentIds }
+                if (newOnes.isNotEmpty()) {
+                    _messages.value = _messages.value + newOnes
+                }
             }
+        }
+    }
+
+    /**
+     * 加载更老的消息 (R1-B / B2), prepend 到 _messages 列表前面。
+     * 没有更老的消息时是 no-op (hasMore 会被置 false)。
+     */
+    fun loadOlderMessages(chatId: Long) {
+        if (!hasMore) {
+            Log.i(TAG, "loadOlderMessages skipped: no more older messages")
+            return
+        }
+        val currentSize = _messages.value.size
+        if (currentSize == 0) {
+            Log.w(TAG, "loadOlderMessages skipped: messages empty (selectChat not called?)")
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                val older = messageStore.getMessages(chatId, limit = 200, offset = currentSize)
+                if (older.isEmpty()) {
+                    hasMore = false
+                    Log.i(TAG, "loadOlderMessages: reached end chatId=$chatId")
+                } else {
+                    _messages.value = older.map { it.toUi() } + _messages.value
+                    if (older.size < 200) hasMore = false
+                    Log.i(TAG, "loadOlderMessages chatId=$chatId loaded=${older.size} total=${_messages.value.size} hasMore=$hasMore")
+                }
+            }.onFailure { Log.e(TAG, "loadOlderMessages failed", it) }
+        }
+    }
+
+    /**
+     * 编辑指定消息 (R1-B / B4)。
+     * 1) 调 Telegram API editMessageText
+     * 2) 成功后调 messageStore.editMessage 持久化 (isEdited = true)
+     * flow 自动 emit, _messages 同步更新。
+     */
+    fun editMessage(chatId: Long, messageId: Long, newText: String) {
+        if (newText.isBlank()) {
+            Log.w(TAG, "editMessage: blank text, skip")
+            return
+        }
+        val client = _botClient.value
+        if (client == null) {
+            Log.w(TAG, "editMessage: client not ready, skip")
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                val apiResult = client.editMessageText(chatId, messageId, newText)
+                if (apiResult.isFailure) {
+                    Log.w(TAG, "editMessageText API failed: ${apiResult.exceptionOrNull()?.message}")
+                    return@launch
+                }
+                messageStore.editMessage(chatId, messageId, newText)
+                    .onFailure { Log.w(TAG, "editMessage store update failed: ${it.message}") }
+            }.onFailure { Log.e(TAG, "editMessage failed", it) }
+        }
+    }
+
+    /**
+     * 删除指定消息 (R1-B / B4)。
+     * 1) 调 Telegram API deleteMessage
+     * 2) 成功后调 messageStore.deleteMessage 从本地存储移除
+     * flow 自动 emit, _messages 同步更新。
+     */
+    fun deleteMessage(chatId: Long, messageId: Long) {
+        val client = _botClient.value
+        if (client == null) {
+            Log.w(TAG, "deleteMessage: client not ready, skip")
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                val apiResult = client.deleteMessage(chatId, messageId)
+                if (apiResult.isFailure) {
+                    Log.w(TAG, "deleteMessage API failed: ${apiResult.exceptionOrNull()?.message}")
+                    return@launch
+                }
+                messageStore.deleteMessage(chatId, messageId)
+                    .onFailure { Log.w(TAG, "deleteMessage store update failed: ${it.message}") }
+            }.onFailure { Log.e(TAG, "deleteMessage failed", it) }
         }
     }
 

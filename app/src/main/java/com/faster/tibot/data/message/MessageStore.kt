@@ -173,6 +173,98 @@ class MessageStore(private val context: Context) {
         return parseMessagesSafe(raw).sortedBy { it.date }
     }
 
+    /**
+     * 分页读取 (R1-B / B2)。
+     *
+     * 语义: offset 表示"从最新往前数已加载的条数"。
+     * - offset = 0  → 返回最新 limit 条 (按 date 升序)
+     * - offset = N  → 跳过最新 N 条, 再取 limit 条 (更老)
+     * - offset 越界 → 返回空列表
+     * - limit 超过剩余 → 返回剩余条数
+     *
+     * 与旧 getMessages(chatId) 不冲突, 参数列表不同。
+     */
+    suspend fun getMessages(chatId: Long, limit: Int = 200, offset: Int = 0): List<TelegramMessage> {
+        if (limit <= 0) return emptyList()
+        val raw = context.messageDataStore.data.first()[Keys.chatMessages(chatId)] ?: "[]"
+        val all = parseMessagesSafe(raw).sortedBy { it.date }  // oldest -> newest
+        val total = all.size
+        val to = total - offset
+        if (to <= 0) return emptyList()
+        val from = (to - limit).coerceAtLeast(0)
+        return if (from >= to) emptyList() else all.subList(from, to)
+    }
+
+    /**
+     * 编辑指定消息的文本 (R1-B / B4)。
+     *
+     * 找到 chat_msgs_{chatId} 中 messageId 匹配的消息, 更新 text 并置 isEdited = true。
+     * messageId 不存在时返回 Result.failure。
+     */
+    suspend fun editMessage(chatId: Long, messageId: Long, newText: String): Result<Unit> {
+        return runCatching {
+            var found = false
+            context.messageDataStore.edit { prefs ->
+                val key = Keys.chatMessages(chatId)
+                val raw = prefs[key] ?: "[]"
+                val arr = try {
+                    JSONArray(raw)
+                } catch (_: Exception) {
+                    JSONArray()
+                }
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    if (obj.optLong("messageId", 0L) == messageId) {
+                        obj.put("text", newText)
+                        obj.put("isEdited", true)
+                        found = true
+                        break
+                    }
+                }
+                if (!found) {
+                    error("messageId $messageId not found in chat $chatId")
+                }
+                prefs[key] = arr.toString()
+            }
+            Unit
+        }
+    }
+
+    /**
+     * 删除指定消息 (R1-B / B4)。
+     *
+     * 从 chat_msgs_{chatId} JSONArray 中移除 messageId 匹配的条目。
+     * messageId 不存在时返回 Result.failure。
+     */
+    suspend fun deleteMessage(chatId: Long, messageId: Long): Result<Unit> {
+        return runCatching {
+            var found = false
+            context.messageDataStore.edit { prefs ->
+                val key = Keys.chatMessages(chatId)
+                val raw = prefs[key] ?: "[]"
+                val arr = try {
+                    JSONArray(raw)
+                } catch (_: Exception) {
+                    JSONArray()
+                }
+                val newArr = JSONArray()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    if (obj.optLong("messageId", 0L) == messageId) {
+                        found = true
+                        continue
+                    }
+                    newArr.put(obj)
+                }
+                if (!found) {
+                    error("messageId $messageId not found in chat $chatId")
+                }
+                prefs[key] = newArr.toString()
+            }
+            Unit
+        }
+    }
+
     fun getMessagesFlow(chatId: Long): Flow<List<TelegramMessage>> =
         context.messageDataStore.data
             .map { prefs -> parseMessagesSafe(prefs[Keys.chatMessages(chatId)] ?: "[]") }

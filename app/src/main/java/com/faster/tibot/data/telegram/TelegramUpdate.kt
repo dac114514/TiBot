@@ -22,6 +22,12 @@ data class TelegramMessage(
     val localFilePath: String = "",
     val ruleId: String = "",
     val replyToMessageId: Long = 0L,
+    /**
+     * 该消息是否被编辑过 (R1-B / B4 引入)。
+     * 默认 false — 老数据无此字段, 向前兼容。
+     * 编辑成功后, MessageStore.editMessage 会把此位置 true。
+     */
+    val isEdited: Boolean = false,
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
@@ -44,6 +50,7 @@ data class TelegramMessage(
             put("localFilePath", localFilePath)
             put("ruleId", ruleId)
             put("replyToMessageId", replyToMessageId)
+            put("isEdited", isEdited)
         }
     }
 
@@ -69,6 +76,7 @@ data class TelegramMessage(
                 localFilePath = o.optString("localFilePath", ""),
                 ruleId = o.optString("ruleId", ""),
                 replyToMessageId = o.optLong("replyToMessageId", 0L),
+                isEdited = o.optBoolean("isEdited", false),
             )
         }
     }

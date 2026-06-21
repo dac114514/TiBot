@@ -18,14 +18,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +67,10 @@ fun ChatDetailScreen(
     val scope = rememberCoroutineScope()
     var showScrollToBottom by remember { mutableStateOf(false) }
 
+    // R1-B / B4: 编辑/删除的弹窗状态
+    var editingMessage by remember { mutableStateOf<ChatMessage?>(null) }
+    var deletingMessage by remember { mutableStateOf<ChatMessage?>(null) }
+
     // 消费端 fallback: 如果 ChatSummary.chatTitle 为空(P1.5 修复前的旧数据),
     // 从消息列表里挑最后一条非空 senderName 作为兜底显示,
     // 避免用户看到"?"和"聊天"占位。
@@ -73,6 +81,21 @@ fun ChatDetailScreen(
     }
     val chatAvatarLetter = remember(chatTitle) {
         chatTitle.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    }
+
+    // R1-B / B2: 滚到顶时检测, 触发 loadOlderMessages
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val first = info.visibleItemsInfo.firstOrNull()
+            first != null && first.index == 0 && first.offset == 0
+        }
+    }
+    LaunchedEffect(shouldLoadMore, chatId) {
+        if (shouldLoadMore) {
+            android.util.Log.i("ChatDetailScreen", "loadOlderMessages triggered chatId=$chatId")
+            vm.loadOlderMessages(chatId)
+        }
     }
 
     LaunchedEffect(messages.size) {
@@ -143,7 +166,8 @@ fun ChatDetailScreen(
                                             }
                                             "reply" -> vm.setReplyTo(msg)
                                             "forward" -> android.widget.Toast.makeText(context, "转发功能待实现", android.widget.Toast.LENGTH_SHORT).show()
-                                            "delete" -> android.widget.Toast.makeText(context, "删除功能待实现", android.widget.Toast.LENGTH_SHORT).show()
+                                            "edit" -> editingMessage = msg
+                                            "delete" -> deletingMessage = msg
                                         }
                                     },
                                 )
@@ -197,6 +221,88 @@ fun ChatDetailScreen(
             onSendFile = { path, caption -> vm.sendFile(chatId, path, caption) },
         )
     }
+
+    // R1-B / B4: 编辑弹窗
+    editingMessage?.let { msg ->
+        EditMessageDialog(
+            initialText = msg.text,
+            onDismiss = { editingMessage = null },
+            onConfirm = { newText ->
+                val messageId = msg.id.removePrefix("msg_").toLongOrNull() ?: 0L
+                if (messageId > 0L && newText.isNotBlank()) {
+                    vm.editMessage(chatId, messageId, newText)
+                }
+                editingMessage = null
+            },
+        )
+    }
+
+    // R1-B / B4: 删除确认弹窗
+    deletingMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { deletingMessage = null },
+            title = { Text("删除消息") },
+            text = {
+                Text(
+                    text = msg.text.take(80).ifBlank { "(空消息)" },
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val messageId = msg.id.removePrefix("msg_").toLongOrNull() ?: 0L
+                    if (messageId > 0L) vm.deleteMessage(chatId, messageId)
+                    deletingMessage = null
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingMessage = null }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
+}
+
+/**
+ * R1-B / B4: 编辑消息的对话框 (TextField + 确认/取消)。
+ */
+@Composable
+private fun EditMessageDialog(
+    initialText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf(initialText) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑消息") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 6,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank() && text != initialText,
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
 }
 
 @Composable
